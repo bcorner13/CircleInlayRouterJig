@@ -14,7 +14,7 @@ TemplateHole  = Recess + BearingOD − CutterDiameter
 TemplateThick = CutterLength − RecessDepth + BearingStackHeight − CollarGap
 ```
 
-Sizes planned: Ø100, Ø150, Ø200 (single piece on a 350 mm bed); Ø250 TBD.
+Sizes planned: Ø100, Ø150, Ø200 (single piece on a 350 mm bed), for 3.1–3.2 mm thick discs. Ø250 is on the backlog.
 
 ## Status
 

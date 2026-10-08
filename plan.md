@@ -9,7 +9,8 @@ decision). Rev 1 (bushing kit) is in git history.
 
 `images/reference-IMG_0491.jpg`: the inlay is a laser-cut, laser-engraved wooden disc (a St. Benedict
 medal, light plywood/basswood). It's engraved before inlaying, so the disc's cut edge is the only fit surface.
-Size set: **Ø100 / 150 / 200 / 250**, with Ø150 first.
+Discs are **3.1–3.2 mm** thick, and their laser kerf is negligible (< .0007). Size set: **Ø100 / 150 / 200**, with Ø150 first.
+Ø250 is on the **backlog** (see the end of this plan).
 
 ## Tooling
 
@@ -82,8 +83,8 @@ All live in `Params.FCStd` → `VarSet`, created by `macros/00-bootstrap_params.
 | Name | Type | Default | Group | Meaning |
 |---|---|---|---|---|
 | `InlayDiameter` | Length | 150 mm | Inlay | Nominal laser-cut disc diameter (the size knob) |
-| `LaserKerf` | Length | 0.15 mm **TBD** | Inlay | Diameter the disc loses to laser kerf (0 if the laser software compensates) |
-| `RecessDepth` | Length | 3.0 mm **TBD** | Inlay | Disc thickness = routed depth. Drives plate height |
+| `LaserKerf` | Length | 0 mm | Inlay | Diameter the disc loses to laser kerf. Measured < .0007, so negligible; the knob is kept for other lasers/materials |
+| `RecessDepth` | Length | 3.2 mm | Inlay | Routed depth = the **thickest** disc (range 3.1–3.2), because the engraved discs can't be sanded flush, so they sit flush to 0.1 below. Drives plate height |
 | `CutterDiameter` | Length | 9.525 mm **TBD** | Tooling | Measured cutter Ø (3/8") |
 | `CutterLength` | Length | 9.525 mm **TBD** | Tooling | Measured cutting length (3/8") |
 | `BearingOD` | Length | 9.525 mm **TBD** | Tooling | Measured bearing Ø |
@@ -112,8 +113,11 @@ Each concern gets its own knob: glue fit (`InlayFitClearance`), laser process (`
 (`CollarGap`). Rev 1's `LeadInChamfer` is **dropped**. Any chamfer on the hole would eat into the
 ~3 mm bearing band, and the bit enters from above anyway.
 
-Worked example (Ø150, placeholders): Recess **149.95**; Hole **149.95**; modeled hole **150.25**;
-relief **Ø151.95 × 7.53** high; plate **290.48 × 290.48 × 10.73**; bearing band **3.2**; margin **70.26**.
+Worked example (Ø150; bit dims are listing/placeholder values): Recess **150.10**; Hole **150.10**; modeled
+hole **150.40**; relief **Ø152.10 × 7.325** high; plate **290.63 × 290.63 × 10.525**; bearing band **3.2**; margin **70.26**.
+
+Depth tolerance: `ReliefGap` and `CollarGap` (1 mm each) absorb router depth-setting error of up to ~±0.9 mm
+before the cutter touches the relief ceiling or the collar touches the plate top.
 
 ## FEATURE TREE
 
@@ -150,7 +154,7 @@ Otherwise the bearing band, the one surface that sets the recess size, comes out
 1. `python3 scripts/audit_parametric.py` is clean.
 2. **Flex tests** (a binding alone isn't proof the Param drives geometry):
    - `InlayDiameter` 150 → 100: the measured hole edge radius = `TemplateHoleModelD/2`, and the plate bbox = `TemplateSide`.
-   - `RecessDepth` 3 → 4: the plate gets 1 mm thinner and the relief 1 mm shorter; the bearing band stays the same.
+   - `RecessDepth` 3.2 → 4.2: the plate gets 1 mm thinner and the relief 1 mm shorter; the bearing band stays the same.
    Restore the values afterwards.
 3. `validate_object` / `part_check_shape`: a valid closed solid, centered on X/Y.
 4. Geometry asserts: `TemplateSide ≤ 350` (K2 Plus bed); `BearingBand ≥ 2.5`; `ReliefHeight < TemplateThick`.
@@ -166,7 +170,7 @@ Otherwise the bearing band, the one surface that sets the recess size, comes out
 ## USAGE CONSTRAINT: ONE FULL-DEPTH PASS
 
 The plate's height is computed for the cutter at full `RecessDepth`. On a shallower pass the cutter sits
-higher and **cuts into the plate above the relief**. For the 2–4 mm plywood discs, a 3/8" downcut at full
+higher and **cuts into the plate above the relief**. For the 3.1–3.2 mm plywood discs, a 3/8" downcut at full
 depth is a normal single pass for a compact router. If multiple passes are ever needed, raise `ReliefGap`
 by the shallowest pass's shortfall. That shrinks `BearingBand`, so check the ≥ 2.5 mm assert.
 
@@ -185,27 +189,31 @@ because PA6 absorbs moisture and swells, so a nylon hole drifts with shop humidi
 ## SIZE SET & BED FIT
 
 Every size comes from one model by changing `InlayDiameter`. `macros/NN-export_all_sizes.FCMacro` will loop
-through the set, recompute, export `stl/RecessTemplate-D<size>.stl`, and restore the original value.
+through **100, 150, 200**, recompute, export `stl/RecessTemplate-D<size>.stl`, and restore the original value.
 
-K2 Plus 350 mm bed (placeholders; margin 70.26, hole ≈ disc − 0.05):
+K2 Plus 350 mm bed (margin 70.26, hole = disc + 0.10):
 
 | Disc | Plate side | Fit |
 |---|---|---|
-| 100 | 240.5 | ✅ 109 mm spare |
-| 150 | 290.5 | ✅ 59 mm spare |
-| 200 | 340.5 | ✅ 9.5 mm spare. Confirm the real printable area |
-| 250 | 390.5 | ❌ 40.5 mm over (Open Q 4) |
+| 100 | 240.63 | ✅ 109 mm spare |
+| 150 | 290.63 | ✅ 59 mm spare |
+| 200 | 340.63 | ✅ 9.4 mm spare. Confirm the real printable area |
 
-## OPEN QUESTIONS (need answers before approval)
+## BEFORE FIRST ROUT (not approval blockers; the Params absorb them)
 
-1. **Disc thickness**: sets `RecessDepth` and therefore plate height. Is it the same for every size?
-2. **Bit measurements** on arrival: cutter Ø, cutting length, bearing Ø, bearing stack height. Do the collet check (Validation 5).
-3. **Laser kerf**: does the laser software compensate? If not, what's the measured kerf?
-4. **Ø250 strategy**: (a) a **segmented plate**, 2 or 4 keyed pieces with a `SegmentCount` Param and
-   its own joint-clearance Param, recommended. The bearing crosses the seams, so they must register flush.
-   (b) A thinner margin on Ø250 only, leaving the base overhanging the plate by ~20 mm. (c) A narrow ring
-   plus a separate sub-base to steady the router.
-5. **Workholding**: double-sided tape only, or countersunk screw/clamp holes?
-6. **Size label** engraved on the top face (needs `DatumPlane_Top`)?
-7. **Plate outline**: solid square (simplest) or round (less plastic, notches stay on the axes)?
-8. **PA6-CF12 brand**, only if it's still a candidate.
+* **Measure the bit** on arrival: cutter Ø, cutting length, bearing Ø, bearing stack height (5.2 mm is an
+  estimate from the listing drawing). Update the Params and re-run the asserts. Do the collet check (Validation 5).
+
+## OPEN QUESTIONS (need answers before approval). Proposed defaults in **bold**
+
+1. **Workholding**: **double-sided tape only** (no holes, so nothing can meet the router path), or countersunk screw/clamp holes in the margin?
+2. **Size label**: **yes**, a shallow engraved "Ø150" etc. on the top face, outside the router base's path, via `DatumPlane_Top`. Or no label?
+3. **Plate outline**: **solid square** (simplest; the notches sit on flat edges), or round (less plastic)?
+4. **PA6-CF12 brand**, only if it's still a candidate (PETG-rCF08 is the recommendation).
+
+## BACKLOG
+
+* **Ø250 template** (deferred 2026-10-08). The plate would be ~390.6 mm, over the 350 mm bed. Options when it's
+  picked up: (a) a **segmented plate**, 2 or 4 keyed pieces with `SegmentCount` and a joint-clearance Param, recommended;
+  the bearing crosses the seams, so they must register flush. (b) A thinner margin, leaving the router base
+  overhanging ~20 mm. (c) A narrow ring plus a separate sub-base.

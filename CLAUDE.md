@@ -62,7 +62,7 @@ See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists
 - **Template**: `ReliefGap`, `CollarGap`, `BaseSupportOverlap`, `AlignNotchWidth`, `AlignNotchDepth`
 - **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `ReliefDiameter`, `ReliefHeight`, `TemplateThick`, `BearingBand` (validation only), `TemplateMargin`, `TemplateSide`
 
-Size set Ø100/150/200/250 (default 150). `RouterBaseDiameter` = 146.05 comes from the Milwaukee 2723-20 sub-base spec (sourced online; measure to confirm). The bit dims are listing values, and `BearingStackHeight` = 5.2 is **estimated from the listing drawing**. All bit values and `RecessDepth` are placeholders until measured. Bed fit: Ø100/150/200 → 240.5/290.5/340.5 mm (Ø200 has ~9.5 mm spare); Ø250 → 390.5 doesn't fit, and its strategy is an open question in plan.md. Asserts (the macro checks these): `BearingBand ≥ 2.5`, `TemplateSide ≤ 350`.
+Size set Ø100/150/200 (default 150). **Ø250 is on the backlog** (plan.md BACKLOG): its plate would be ~390.6 mm, over the bed. `RecessDepth` = 3.2: discs are 3.1–3.2 mm thick, and the recess is sized for the thickest because the engraved discs can't be sanded flush. `LaserKerf` = 0: Bradley measured it at < .0007, which is negligible. `RouterBaseDiameter` = 146.05 comes from the Milwaukee 2723-20 sub-base spec (sourced online; measure to confirm). The bit dims are listing values, and `BearingStackHeight` = 5.2 is **estimated from the listing drawing**. Measure them on arrival. Bed fit: Ø100/150/200 → 240.6/290.6/340.6 mm (Ø200 has ~9.4 mm spare). Asserts (the macro checks these): `BearingBand ≥ 2.5`, `TemplateSide ≤ 350`.
 
 ---
 

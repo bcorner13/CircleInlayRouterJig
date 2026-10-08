@@ -22,8 +22,8 @@ PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
 # (name, type, group, default, doc)
 PARAMS = [
     ("InlayDiameter",         "App::PropertyLength", "Inlay",     150.0,  "Nominal laser-cut disc diameter (size knob)"),
-    ("LaserKerf",             "App::PropertyLength", "Inlay",     0.15,   "Diameter lost by the disc to laser kerf; 0 if laser SW compensates [TBD]"),
-    ("RecessDepth",           "App::PropertyLength", "Inlay",     3.0,    "Disc thickness = routed recess depth; drives plate height [TBD]"),
+    ("LaserKerf",             "App::PropertyLength", "Inlay",     0.0,    "Diameter lost by the disc to laser kerf; measured < .0007, negligible"),
+    ("RecessDepth",           "App::PropertyLength", "Inlay",     3.2,    "Routed depth = thickest disc (3.1-3.2); engraved discs sit flush to 0.1 below; drives plate height"),
     ("CutterDiameter",        "App::PropertyLength", "Tooling",   9.525,  "Measured cutter diameter, 3/8in pattern bit [TBD measure]"),
     ("CutterLength",          "App::PropertyLength", "Tooling",   9.525,  "Measured cutting length [TBD measure]"),
     ("BearingOD",             "App::PropertyLength", "Tooling",   9.525,  "Measured bearing OD [TBD measure]"),
@@ -101,6 +101,6 @@ if vs.BearingBand.Value < MIN_BEARING_BAND:
     App.Console.PrintError("CIRJ-00: BearingBand %.2f < %.1f mm — bearing has too little wall to ride\n"
                            % (vs.BearingBand.Value, MIN_BEARING_BAND))
 if vs.TemplateSide.Value > BED_SIZE:
-    App.Console.PrintError("CIRJ-00: TemplateSide %.1f > %.0f mm bed — this size needs the Open-Q-4 strategy\n"
+    App.Console.PrintError("CIRJ-00: TemplateSide %.1f > %.0f mm bed — this size needs the segmented-plate backlog item (plan.md BACKLOG)\n"
                            % (vs.TemplateSide.Value, BED_SIZE))
 App.Console.PrintMessage("CIRJ-00: not saved. Save Params.FCStd to %s after review.\n" % PROJECT_DIR)

@@ -15,5 +15,5 @@ Constraints:
 * Recess size must be derivable from the inlay diameter + tooling + laser kerf,
   so one knob (inlay diameter) re-sizes the template
 * Printable without supports
-* Target inlay diameter: **150 mm** (confirmed 2026-10-08)
+* Target inlay diameters: **100, 150, 200, 250 mm** (confirmed 2026-10-08); 150 mm is the first build
 * Router hardware (base diameter, bushing OD, bushing protrusion, bit diameter): **TBD — Bradley to specify**

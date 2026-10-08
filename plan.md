@@ -105,6 +105,24 @@ No sketch attaches to a feature face. Both base and top sketches use datum plane
 5. Physical: print in PLA, measure the hole with calipers, and tune `TemplateHolePrintComp`.
    Rout a test recess in scrap and dry-fit a laser-cut disc, then tune `InlayFitClearance`/`LaserKerf`.
 
+## SIZE SET
+
+Planned variants: **Ø100, Ø150, Ø200, Ø250** (Bradley, 2026-10-08). Every size comes from the same
+model by changing `InlayDiameter`. A `macros/NN-export_all_sizes.FCMacro` will loop through the set,
+recompute, export `stl/RecessTemplate-D<size>.stl`, and restore the original value.
+
+Bed fit with placeholder tooling (hole = disc + 12.65 mm), on the K2 Plus 350 mm bed:
+
+| Disc | Hole | Plate @ margin 75 | Plate @ margin 45 | Max margin that fits |
+|---|---|---|---|---|
+| 100 | 112.65 | 262.65 ✅ | 202.65 ✅ | 118.7 |
+| 150 | 162.65 | 312.65 ✅ | 252.65 ✅ | 93.7 |
+| 200 | 212.65 | 362.65 ❌ | 302.65 ✅ | 68.7 |
+| 250 | 262.65 | 412.65 ❌ | 352.65 ❌ | 43.7 |
+
+**Ø200/Ø250 fit is unresolved.** It depends on router base size (Open Question 1) and a
+strategy choice (Open Question 7). A round outline doesn't help, since its diameter equals the square's side.
+
 ## OPEN QUESTIONS (need answers before approval)
 
 1. Real hardware: router, router base diameter, bushing OD, bushing protrusion length, bit diameter.
@@ -116,3 +134,9 @@ No sketch attaches to a feature face. Both base and top sketches use datum plane
 5. Engrave the size label (e.g. "Ø150") on the top face?
 6. Plate shape: a solid square (simplest, ~310 mm print), or a round/ring outline with the same
    margin (less plastic and print time; alignment notches stay on the X/Y axes)?
+7. Sizes that exceed the bed (see SIZE SET):
+   - (a) **Segmented template**, recommended: 2 or 4 keyed segments, with a `SegmentCount` Param. The
+     bushing crosses the seams, so joint registration needs its own clearance Param.
+   - (b) Shrink the margin on big sizes only. This gives the router base less support, and it can't
+     rescue Ø250 with a full-size router.
+   - (c) A narrow printed ring around the hole, with a separate sub-base to steady the router.

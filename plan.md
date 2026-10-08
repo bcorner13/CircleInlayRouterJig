@@ -1,6 +1,6 @@
 # Plan — CircleInlayRouterJig
 
-**Status: DRAFT rev 2 (bearing-bit method), awaiting Bradley's approval. No CAD execution until it's approved (PROJECT_BOOTSTRAP Step 3).**
+**Status: rev 2 (bearing-bit method), APPROVED by Bradley 2026-10-08.**
 
 Rev 2, 2026-10-08: switched from a guide bushing to a **top-bearing pattern bit** (Bradley's
 decision). Rev 1 (bushing kit) is in git history.
@@ -204,12 +204,15 @@ K2 Plus 350 mm bed (margin 70.26, hole = disc + 0.10):
 * **Measure the bit** on arrival: cutter Ø, cutting length, bearing Ø, bearing stack height (5.2 mm is an
   estimate from the listing drawing). Update the Params and re-run the asserts. Do the collet check (Validation 5).
 
-## OPEN QUESTIONS (need answers before approval). Proposed defaults in **bold**
+## DECISIONS (approved 2026-10-08 with the plan)
 
-1. **Workholding**: **double-sided tape only** (no holes, so nothing can meet the router path), or countersunk screw/clamp holes in the margin?
-2. **Size label**: **yes**, a shallow engraved "Ø150" etc. on the top face, outside the router base's path, via `DatumPlane_Top`. Or no label?
-3. **Plate outline**: **solid square** (simplest; the notches sit on flat edges), or round (less plastic)?
-4. **PA6-CF12 brand**, only if it's still a candidate (PETG-rCF08 is the recommendation).
+1. **Workholding: double-sided tape only.** No holes in the plate.
+2. **Size label: yes.** A shallow engraved label (e.g. "Ø150") on the top face, in a **corner**. The corners
+   lie outside the router base's sweep (base reach ≈ Hole/2 + TemplateMargin − BaseSupportOverlap from center,
+   which is less than the corner distance). New Params: `LabelSize`, `LabelDepth`, `LabelInset`. The text should
+   derive from `InlayDiameter` if FreeCAD expressions allow it (verify live). Otherwise the export macro sets it per size.
+3. **Plate outline: solid square.**
+4. PA6-CF12 brand: open, but not blocking (PETG-rCF08 recommended).
 
 ## BACKLOG
 

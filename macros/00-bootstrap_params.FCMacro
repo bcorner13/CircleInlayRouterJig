@@ -20,7 +20,7 @@ PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
 
 # (name, type, group, default, doc)
 PARAMS = [
-    ("InlayDiameter",         "App::PropertyLength", "Inlay",     50.0,   "Nominal laser-cut disc diameter (size knob) [TBD]"),
+    ("InlayDiameter",         "App::PropertyLength", "Inlay",     150.0,  "Nominal laser-cut disc diameter (size knob)"),
     ("LaserKerf",             "App::PropertyLength", "Inlay",     0.15,   "Diameter lost by the disc to laser kerf; 0 if laser SW compensates [TBD]"),
     ("BushingOD",             "App::PropertyLength", "Tooling",   15.875, "Router guide bushing outer diameter [TBD]"),
     ("BushingProtrusion",     "App::PropertyLength", "Tooling",   6.0,    "Bushing protrusion below router base [TBD]"),
@@ -28,7 +28,7 @@ PARAMS = [
     ("InlayFitClearance",     "App::PropertyLength", "Clearance", 0.05,   "Per-side glue gap, disc <-> recess wall"),
     ("TemplateHolePrintComp", "App::PropertyLength", "Clearance", 0.15,   "Per-side FDM undersize compensation for the printed hole"),
     ("BushingFloorGap",       "App::PropertyLength", "Template",  1.5,    "Gap between bushing tip and workpiece"),
-    ("TemplateMargin",        "App::PropertyLength", "Template",  40.0,   "Plate material outside the hole, each side"),
+    ("TemplateMargin",        "App::PropertyLength", "Template",  75.0,   "Plate material outside the hole, each side (~router base radius) [TBD]"),
     ("LeadInChamfer",         "App::PropertyLength", "Template",  0.8,    "Top-edge chamfer on the hole for bushing lead-in"),
     ("AlignNotchWidth",       "App::PropertyLength", "Template",  3.0,    "Width of edge-midpoint alignment notches"),
     ("AlignNotchDepth",       "App::PropertyLength", "Template",  3.0,    "Depth of edge-midpoint alignment notches"),

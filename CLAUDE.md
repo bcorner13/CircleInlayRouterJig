@@ -58,7 +58,7 @@ See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists
 - **Template**: `BushingFloorGap`, `TemplateMargin`, `LeadInChamfer`, `AlignNotchWidth`, `AlignNotchDepth`
 - **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateSide`, `TemplateThick`
 
-Tooling defaults are **placeholders** (5/8" bushing, 1/8" bit, 6 mm protrusion) until Bradley supplies the real hardware.
+`InlayDiameter` = 150 mm (confirmed). Tooling defaults and `TemplateMargin` = 75 are **placeholders** (5/8" bushing, 1/8" bit, 6 mm protrusion, ~150 mm router base) until Bradley supplies the real hardware.
 
 ---
 

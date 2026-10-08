@@ -224,6 +224,13 @@ underside everywhere outside a **ring foot** of diameter `FootRingDiameter` arou
   overhang. Files are tagged `-S<height>`, and **elephant-foot compensation is required**, since the bearing band is then on the first layers.
 * Often unnecessary: if the field inside a rim is at least as large as the plate, the template just sits on the field.
   Measure first.
+* **Fibogollo bamboo bed tray (40 × 30 cm, 40 mm rim, Bradley confirmed 2026-10-08): feet do NOT apply.** The rim is far
+  above the ~6.5 mm limit, so the template must sit on the floor inside the rim. There the binding constraint is that the
+  **router base's sweep** (diameter `TemplateHoleDiameter − BearingOD + RouterBaseDiameter`) must clear the rim, because
+  the base rides ~10.5 mm above the floor, below the rim top. With the 146 mm template base on an estimated ~275 mm inner
+  short side: Ø100 fits (sweep 236.6), Ø150 does not (286.6). A smaller base (the bearing bit doesn't need the bushing
+  base; a forum reports the 2723 also ships with a ~4" base) would shrink the Ø150 sweep to ~242 mm. That's just a
+  `RouterBaseDiameter` change. Still needed: the inner floor dimensions, the floor thickness, and the other base's diameter.
 
 Verified: suppressed at 0 (volume unchanged); at 5 mm it removed exactly (plate outline − ring) × 5; bearing band unchanged;
 the flipped export read back with the band at the bed and only the ring above the standoff.

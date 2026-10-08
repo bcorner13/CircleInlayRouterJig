@@ -22,13 +22,14 @@ PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
 PARAMS = [
     ("InlayDiameter",         "App::PropertyLength", "Inlay",     150.0,  "Nominal laser-cut disc diameter (size knob)"),
     ("LaserKerf",             "App::PropertyLength", "Inlay",     0.15,   "Diameter lost by the disc to laser kerf; 0 if laser SW compensates [TBD]"),
-    ("BushingOD",             "App::PropertyLength", "Tooling",   15.875, "Router guide bushing outer diameter [TBD]"),
+    ("BushingOD",             "App::PropertyLength", "Tooling",   15.875, "Porter-Cable-style guide bushing outer diameter [TBD]"),
     ("BushingProtrusion",     "App::PropertyLength", "Tooling",   6.0,    "Bushing protrusion below router base [TBD]"),
     ("BitDiameter",           "App::PropertyLength", "Tooling",   3.175,  "Router bit cutting diameter [TBD]"),
     ("InlayFitClearance",     "App::PropertyLength", "Clearance", 0.05,   "Per-side glue gap, disc <-> recess wall"),
     ("TemplateHolePrintComp", "App::PropertyLength", "Clearance", 0.15,   "Per-side FDM undersize compensation for the printed hole"),
     ("BushingFloorGap",       "App::PropertyLength", "Template",  1.5,    "Gap between bushing tip and workpiece"),
-    ("TemplateMargin",        "App::PropertyLength", "Template",  75.0,   "Plate material outside the hole, each side (~router base radius) [TBD]"),
+    ("RouterBaseDiameter",    "App::PropertyLength", "Tooling",   146.05, "Router sub-base diameter: Milwaukee M18 FUEL 2723-20 template base, 5-3/4in"),
+    ("BaseSupportOverlap",    "App::PropertyLength", "Template",  2.0,    "Extra plate beyond the router base's outer edge, with the bushing on the hole wall"),
     ("LeadInChamfer",         "App::PropertyLength", "Template",  0.8,    "Top-edge chamfer on the hole for bushing lead-in"),
     ("AlignNotchWidth",       "App::PropertyLength", "Template",  3.0,    "Width of edge-midpoint alignment notches"),
     ("AlignNotchDepth",       "App::PropertyLength", "Template",  3.0,    "Depth of edge-midpoint alignment notches"),
@@ -36,6 +37,7 @@ PARAMS = [
     ("RecessDiameter",        "App::PropertyLength", "Derived",   0.0,    "Routed recess diameter (derived)"),
     ("TemplateHoleDiameter",  "App::PropertyLength", "Derived",   0.0,    "Functional template hole diameter (derived)"),
     ("TemplateHoleModelD",    "App::PropertyLength", "Derived",   0.0,    "Hole as modeled incl. print comp (derived)"),
+    ("TemplateMargin",        "App::PropertyLength", "Derived",   0.0,    "Plate material outside the hole, each side (derived)"),
     ("TemplateSide",          "App::PropertyLength", "Derived",   0.0,    "Square plate side (derived)"),
     ("TemplateThick",         "App::PropertyLength", "Derived",   0.0,    "Plate thickness (derived)"),
 ]
@@ -44,6 +46,7 @@ DERIVED = {
     "RecessDiameter":       "InlayDiameter - LaserKerf + 2 * InlayFitClearance",
     "TemplateHoleDiameter": "RecessDiameter + BushingOD - BitDiameter",
     "TemplateHoleModelD":   "TemplateHoleDiameter + 2 * TemplateHolePrintComp",
+    "TemplateMargin":       "RouterBaseDiameter / 2 - BushingOD / 2 + BaseSupportOverlap",
     "TemplateSide":         "TemplateHoleDiameter + 2 * TemplateMargin",
     "TemplateThick":        "BushingProtrusion + BushingFloorGap",
 }

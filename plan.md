@@ -39,18 +39,20 @@ Values marked **TBD** are placeholders until Bradley gives the real hardware.
 | `InlayDiameter` | Length | 150 mm | Inlay | Nominal laser-cut disc diameter (the size knob) |
 | `LaserKerf` | Length | 0.15 mm **TBD** | Inlay | Diameter lost to laser kerf (0 if compensated in the laser software) |
 | `InlayFitClearance` | Length | 0.05 mm | Clearance | Per-side glue gap, disc ↔ recess wall |
-| `BushingOD` | Length | 15.875 mm **TBD** | Tooling | Guide bushing outer diameter (5/8") |
+| `BushingOD` | Length | 15.875 mm **TBD** | Tooling | Porter-Cable-style guide bushing OD (5/8" assumed) |
 | `BushingProtrusion` | Length | 6.0 mm **TBD** | Tooling | How far the bushing sticks out below the router base |
-| `BitDiameter` | Length | 3.175 mm **TBD** | Tooling | Router bit cutting diameter (1/8") |
+| `BitDiameter` | Length | 3.175 mm **TBD** | Tooling | Router bit cutting diameter (1/8"; the router takes 1/4" shanks) |
+| `RouterBaseDiameter` | Length | 146.05 mm | Tooling | Milwaukee M18 FUEL 2723-20 template sub-base, 5-3/4" (sourced; measure to confirm) |
 | `TemplateHolePrintComp` | Length | 0.15 mm | Clearance | Per-side FDM compensation, since printed holes come out undersize. Tune after test print |
 | `BushingFloorGap` | Length | 1.5 mm | Template | Clearance between bushing tip and workpiece |
-| `TemplateMargin` | Length | 75 mm **TBD** | Template | Plate material outside the hole on each side (router-base support: should be ≈ router base radius; 75 assumes a ~150 mm base) |
+| `BaseSupportOverlap` | Length | 2 mm | Template | Extra plate beyond the router base's outer edge, with the bushing touching the hole wall |
 | `LeadInChamfer` | Length | 0.8 mm | Template | Top-edge chamfer on the hole so the bushing drops in cleanly |
 | `AlignNotchWidth` | Length | 3 mm | Template | V/slot notch at each edge midpoint, used to align to layout lines |
 | `AlignNotchDepth` | Length | 3 mm | Template | Notch depth into plate edge |
 | `RecessDiameter` | Length | *derived* | Derived | Expression, see Concept |
 | `TemplateHoleDiameter` | Length | *derived* | Derived | Expression, see Concept |
 | `TemplateHoleModelD` | Length | *derived* | Derived | Hole as modeled (includes print comp) |
+| `TemplateMargin` | Length | *derived* | Derived | `RouterBaseDiameter/2 − BushingOD/2 + BaseSupportOverlap` (= 67.09) |
 | `TemplateSide` | Length | *derived* | Derived | `TemplateHoleDiameter + 2*TemplateMargin` |
 | `TemplateThick` | Length | *derived* | Derived | `BushingProtrusion + BushingFloorGap` (the bushing can't bottom out on the workpiece) |
 
@@ -58,11 +60,13 @@ Clearance concepts are decoupled: glue fit (`InlayFitClearance`), laser process
 (`LaserKerf`), and FDM print fit (`TemplateHolePrintComp`) each get their own knob.
 
 Worked example (Ø150 disc, tooling placeholders): Recess = 150 − 0.15 + 0.10 = **149.95**;
-Hole = 149.95 + 15.875 − 3.175 = **162.65**; modeled hole **162.95**; plate
-**312.65 × 312.65 × 7.5**, which fits the K2 Plus 350 mm bed with ~37 mm to spare. The bushing path
-radius is ~73.4 mm, so a ~150 mm router base reaches the hole center at the far side. That's why
-`TemplateMargin` is ~75 mm (≈ base radius): the outer half of the base always has plastic under it.
-It's a large print (~310 mm square). The ring or skeleton variant listed in Open Questions would cut that.
+Hole = 149.95 + 15.875 − 3.175 = **162.65**; modeled hole **162.95**; margin **67.09**; plate
+**296.82 × 296.82 × 7.5**.
+
+Why the margin is base radius − bushing radius: with the bushing touching the hole wall, the
+router base's outer edge sits at `(Hole − BushingOD)/2 + RouterBaseDiameter/2` from center. The
+plate edge must reach that point, at `Hole/2 + TemplateMargin`. That's the worst case, along the
+X/Y axes; the square's corners give extra support on the diagonals.
 
 ## FEATURE TREE
 
@@ -98,10 +102,7 @@ No sketch attaches to a feature face. Both base and top sketches use datum plane
    confirm it equals `TemplateHoleModelD/2`. Then restore the value.
 3. `part_check_shape` / `validate_object` report a valid, closed solid; bounding box is centered on the origin.
 4. Assert `TemplateThick > BushingProtrusion`, and `TemplateSide` ≤ 350 mm (K2 Plus bed).
-   With `TemplateMargin` = 75, that caps the hole at ~200 mm (Ø150 disc → 312.65 mm plate, fits). Beyond that, the plate needs
-   a ring shape or a split, bolted design (a plan revision, not a Param tweak).
-   Router-base support: the base must stay mostly on plastic while the bushing circles the
-   hole, so `TemplateMargin` should be roughly ≥ half the router base diameter.
+   Exceeding the bed is a plan revision (see SIZE SET), not a Param tweak.
 5. Physical: print in PLA, measure the hole with calipers, and tune `TemplateHolePrintComp`.
    Rout a test recess in scrap and dry-fit a laser-cut disc, then tune `InlayFitClearance`/`LaserKerf`.
 
@@ -111,32 +112,32 @@ Planned variants: **Ø100, Ø150, Ø200, Ø250** (Bradley, 2026-10-08). Every si
 model by changing `InlayDiameter`. A `macros/NN-export_all_sizes.FCMacro` will loop through the set,
 recompute, export `stl/RecessTemplate-D<size>.stl`, and restore the original value.
 
-Bed fit with placeholder tooling (hole = disc + 12.65 mm), on the K2 Plus 350 mm bed:
+Bed fit on the K2 Plus 350 mm bed (Milwaukee base, placeholder bushing/bit; hole = disc + 12.65, margin 67.09):
 
-| Disc | Hole | Plate @ margin 75 | Plate @ margin 45 | Max margin that fits |
-|---|---|---|---|---|
-| 100 | 112.65 | 262.65 ✅ | 202.65 ✅ | 118.7 |
-| 150 | 162.65 | 312.65 ✅ | 252.65 ✅ | 93.7 |
-| 200 | 212.65 | 362.65 ❌ | 302.65 ✅ | 68.7 |
-| 250 | 262.65 | 412.65 ❌ | 352.65 ❌ | 43.7 |
+| Disc | Hole | Plate | Fit |
+|---|---|---|---|
+| 100 | 112.65 | 246.82 | ✅ 103 mm spare |
+| 150 | 162.65 | 296.82 | ✅ 53 mm spare |
+| 200 | 212.65 | 346.82 | ⚠️ fits with only 3.2 mm spare, so no brim; confirm the K2 Plus's real printable area |
+| 250 | 262.65 | 396.82 | ❌ 46.8 mm over |
 
-**Ø200/Ø250 fit is unresolved.** It depends on router base size (Open Question 1) and a
-strategy choice (Open Question 7). A round outline doesn't help, since its diameter equals the square's side.
+**Ø250 needs a strategy (Open Question 7).** A round outline doesn't help, since its diameter equals the square's side.
+The Ø200 margin is so thin that a larger `BushingOD` or `BaseSupportOverlap` would push it over the bed.
 
 ## OPEN QUESTIONS (need answers before approval)
 
-1. Real hardware: router, router base diameter, bushing OD, bushing protrusion length, bit diameter.
-2. ~~Disc diameter~~: **150 mm** (answered 2026-10-08). Still open: disc thickness, and any other
-   target sizes. Should I export one STL per size (e.g. `stl/RecessTemplate-D150.stl`)? Disc thickness sets the router
+1. ~~Router~~: **Milwaukee M18 FUEL compact router (2723-20)**, using its 5-3/4" template sub-base (Porter-Cable-style
+   guides, 1-3/16" hole); answered 2026-10-08. Still open: which bushing OD, its protrusion length, and the bit diameter.
+2. ~~Sizes~~: **Ø100/150/200/250** (answered 2026-10-08). Still open: disc thickness. Disc thickness sets the router
    plunge depth. It doesn't drive template geometry, so it gets no Param unless something uses it.
 3. Laser: does the laser software compensate for kerf, and what's the measured kerf?
 4. Workholding: double-sided tape only, or add countersunk screw/clamp holes?
 5. Engrave the size label (e.g. "Ø150") on the top face?
-6. Plate shape: a solid square (simplest, ~310 mm print), or a round/ring outline with the same
+6. Plate shape: a solid square (simplest, up to ~347 mm print), or a round/ring outline with the same
    margin (less plastic and print time; alignment notches stay on the X/Y axes)?
-7. Sizes that exceed the bed (see SIZE SET):
+7. How to handle Ø250, which exceeds the bed (see SIZE SET):
    - (a) **Segmented template**, recommended: 2 or 4 keyed segments, with a `SegmentCount` Param. The
      bushing crosses the seams, so joint registration needs its own clearance Param.
-   - (b) Shrink the margin on big sizes only. This gives the router base less support, and it can't
-     rescue Ø250 with a full-size router.
+   - (b) Shrink the margin on Ø250 only. It would need a 43.7 mm margin vs the 67 required, so the
+     router base would overhang the plate by ~23 mm at the outer edge.
    - (c) A narrow printed ring around the hole, with a separate sub-base to steady the router.

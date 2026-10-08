@@ -10,7 +10,7 @@ This jig's whole value is one derivation chain: **laser-cut disc diameter → re
 
 These restate the global rules in `~/.claude/CLAUDE.md` with project-specific context. Cite the actual incident or constraint that motivates each one — generic restatements are useless because the global file already has them.
 
-1. **Everything parametric.** The highest-risk sketch is `Sk_Hole`. Its diameter must bind to the *derived* `<<Params>>#VarSet.TemplateHoleModelD`, never to `InlayDiameter` directly and never to a hand-computed number. Derived values (`RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateSide`, `TemplateThick`) are expressions *inside the VarSet*, so the formula exists in exactly one place. No prior incident in this project (fresh as of 2026-10-08).
+1. **Everything parametric.** The highest-risk sketch is `Sk_Hole`. Its diameter must bind to the *derived* `<<Params>>#VarSet.TemplateHoleModelD`, never to `InlayDiameter` directly and never to a hand-computed number. Derived values (`RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateMargin`, `TemplateSide`, `TemplateThick`) are expressions *inside the VarSet*, so the formula exists in exactly one place. No prior incident in this project (fresh as of 2026-10-08).
 
 2. **No fixing geometry by editing raw sketch coordinates.** No prior incident in this project; rule applies preventively.
 
@@ -31,7 +31,7 @@ There's no multi-part assembly. One printed part sits in a three-layer physical 
 
 - **Workpiece** (bottom): the board receiving the inlay. The template is taped or clamped on top, with its 4 edge-midpoint `AlignNotch` notches aligned to layout lines through the intended recess center.
 - **RecessTemplate** (middle): a square plate with a circular through-hole centered on the origin. The plate must be thicker than the bushing protrudes (`TemplateThick = BushingProtrusion + BushingFloorGap`), or the bushing drags on the workpiece.
-- **Router** (top): the base rides on the template's top face, and the **guide bushing rides the inside wall of the hole**. The bit, smaller than the bushing, cuts *outside* the bushing path, so the recess is larger than the bushing path and smaller than the hole: `Recess = Hole − BushingOD + BitDiameter`. The top-edge `LeadInChamfer` lets the bushing drop in.
+- **Router** (top): a Milwaukee M18 FUEL compact router (2723-20) on its 5-3/4" template sub-base, which takes Porter-Cable-style guides. The base rides on the template's top face, and the **guide bushing rides the inside wall of the hole**. The bit, smaller than the bushing, cuts *outside* the bushing path, so the recess is larger than the bushing path and smaller than the hole: `Recess = Hole − BushingOD + BitDiameter`. The top-edge `LeadInChamfer` lets the bushing drop in.
 - **Inlay disc**: laser cut separately (not printed, not modeled). It mates into the recess at `InlayFitClearance` per side.
 
 There's no plug/male template. The laser makes the disc, which is why this isn't a classic two-template inlay kit.
@@ -53,12 +53,12 @@ No broken files. Neither FCStd exists yet. The project is scaffolded and its pla
 
 See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists, after which the VarSet itself is authoritative). Groups:
 - **Inlay**: `InlayDiameter` (the size knob), `LaserKerf`
-- **Tooling**: `BushingOD`, `BushingProtrusion`, `BitDiameter`
+- **Tooling**: `BushingOD`, `BushingProtrusion`, `BitDiameter`, `RouterBaseDiameter`
 - **Clearance**: `InlayFitClearance`, `TemplateHolePrintComp`
-- **Template**: `BushingFloorGap`, `TemplateMargin`, `LeadInChamfer`, `AlignNotchWidth`, `AlignNotchDepth`
-- **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateSide`, `TemplateThick`
+- **Template**: `BushingFloorGap`, `BaseSupportOverlap`, `LeadInChamfer`, `AlignNotchWidth`, `AlignNotchDepth`
+- **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateMargin`, `TemplateSide`, `TemplateThick`
 
-`InlayDiameter` = 150 mm (confirmed). Tooling defaults and `TemplateMargin` = 75 are **placeholders** (5/8" bushing, 1/8" bit, 6 mm protrusion, ~150 mm router base) until Bradley supplies the real hardware.
+Size set Ø100/150/200/250 (default 150). `RouterBaseDiameter` = 146.05 comes from the Milwaukee 2723-20 template base spec (sourced online; measure to confirm). `TemplateMargin` is **derived** (`RouterBaseDiameter/2 − BushingOD/2 + BaseSupportOverlap`): never hand-set it. Bushing and bit defaults are **placeholders** (5/8" bushing, 1/8" bit, 6 mm protrusion) until Bradley supplies them. **Ø200 fits the 350 bed with only ~3 mm to spare**, so any change that grows the margin or hole (bigger bushing, more overlap) breaks it. Re-check `TemplateSide` ≤ 350 for every size after tooling changes.
 
 ---
 

@@ -1,0 +1,148 @@
+# -*- coding: utf-8 -*-
+"""03-export_print_files — export STL + 3MF for every size in the set.
+
+For each size in SIZES: set InlayDiameter, recompute, run the pre-flight checks, mesh
+finely, verify the meshed hole, write
+    stl/RecessTemplate-D<size>.stl
+    3mf/RecessTemplate-D<size>.3mf
+then restore the original InlayDiameter. Does NOT save either document.
+
+PRINT ORIENTATION: as modeled, with the WORKPIECE (bottom) FACE ON THE BED, centered on
+X/Y and ZMin = 0. Flat orientation is strongest: layers run parallel to the plate, and
+the bearing's side load is carried along continuous perimeters. Putting the bottom face
+down (rather than the top) keeps the fit-critical bearing band (z = ReliefHeight to
+TemplateThick) in the upper layers, away from first-layer elephant foot. The label is
+engraved in the top layers, and the only overhang is the small relief ledge
+(ReliefDiameter - TemplateHoleModelD)/2 wide. The exporter asserts this placement;
+it never rotates the part.
+
+MESH: LinearDeflection 0.005 mm / AngularDeflection 2 deg. FreeCAD's default (0.1 mm)
+shrank a Ø200 hole by ~0.036 mm through chordal facets — a third of the glue gap. The
+macro measures the meshed hole at mid-band and fails if it loses more than
+MAX_HOLE_LOSS.
+
+Run from FreeCAD (Macro menu) or via MCP run_macro. Prints a report to stdout.
+"""
+import math
+import os
+import FreeCAD as App
+import Mesh
+import MeshPart
+
+PROJECT_DIR = os.path.expanduser(
+    "~/Documents/3dPrinting/Commercial License/CircleInlayRouterJig")
+PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
+MODEL_PATH = os.path.join(PROJECT_DIR, "CircleInlayRouterJig.FCStd")
+
+SIZES = (100, 150, 200)          # Ø250 is on the backlog: it exceeds the bed
+BED_SIZE = 350.0                 # mm, Creality K2 Plus
+MIN_BEARING_BAND = 2.5           # mm, plan.md Validation 4
+LINEAR_DEFLECTION = 0.005        # mm
+ANGULAR_DEFLECTION_DEG = 2.0
+MAX_HOLE_LOSS = 0.01             # mm diametral, mesh vs model at mid-band
+TOL = 1e-6
+
+
+def find_doc(path):
+    for d in App.listDocuments().values():
+        if d.FileName and os.path.abspath(d.FileName) == path:
+            return d
+    return None
+
+
+params = find_doc(PARAMS_PATH) or App.openDocument(PARAMS_PATH)
+doc = find_doc(MODEL_PATH) or App.openDocument(MODEL_PATH)
+vs = params.getObject("VarSet")
+body = doc.getObject("RecessTemplate")
+label = doc.getObjectsByLabel("Label_Text")
+label = label[0] if label else None
+
+
+def v(name):
+    return getattr(vs, name).Value
+
+
+def recompute():
+    params.recompute()
+    doc.recompute()
+    bad = [o.Name for o in doc.Objects if set(o.State) & {"Invalid", "Error", "Touched"}]
+    if bad:
+        raise RuntimeError("recompute left objects in a bad state: %s" % bad)
+
+
+def preflight(size):
+    """Raise on anything that would make a bad print file."""
+    sh = body.Shape
+    bb = sh.BoundBox
+    problems = []
+    if not sh.isValid() or len(sh.Solids) != 1:
+        problems.append("shape not a single valid solid")
+    if v("TemplateSide") > BED_SIZE + TOL:
+        problems.append("TemplateSide %.2f > bed %.0f" % (v("TemplateSide"), BED_SIZE))
+    if v("BearingBand") < MIN_BEARING_BAND - TOL:
+        problems.append("BearingBand %.2f < %.1f" % (v("BearingBand"), MIN_BEARING_BAND))
+    if abs(bb.ZMin) > 1e-4:
+        problems.append("ZMin %.4f != 0 (bottom face must be on the bed)" % bb.ZMin)
+    if abs(bb.Center.x) > 1e-4 or abs(bb.Center.y) > 1e-4:
+        problems.append("not centered on X/Y (%.4f, %.4f)" % (bb.Center.x, bb.Center.y))
+    if label is not None and label.String != "Ø%g" % size:
+        problems.append("label reads %r, expected 'Ø%g'" % (label.String, size))
+    if problems:
+        raise RuntimeError("D%s pre-flight failed: %s" % (size, "; ".join(problems)))
+    return bb
+
+
+def meshed_hole_dia(mesh):
+    """Smallest diameter of the meshed hole at mid bearing band (chord midpoints)."""
+    z = v("ReliefHeight") + v("BearingBand") / 2
+    limit = (v("TemplateHoleModelD") + v("ReliefDiameter")) / 4   # between hole and plate
+    rmin = None
+    for poly in mesh.crossSections([(App.Vector(0, 0, z), App.Vector(0, 0, 1))])[0]:
+        pts = list(poly)
+        for a, b in zip(pts, pts[1:]):
+            mid = (a + b) * 0.5
+            r = math.hypot(mid.x, mid.y)
+            if r < limit and (rmin is None or r < rmin):
+                rmin = r
+    if rmin is None:
+        raise RuntimeError("could not find the hole in the mesh cross-section at z=%.3f" % z)
+    return 2 * rmin
+
+
+original = vs.InlayDiameter
+report = []
+try:
+    for size in SIZES:
+        vs.InlayDiameter = size
+        recompute()
+        bb = preflight(size)
+        mesh = MeshPart.meshFromShape(Shape=body.Shape, LinearDeflection=LINEAR_DEFLECTION,
+                                      AngularDeflection=math.radians(ANGULAR_DEFLECTION_DEG),
+                                      Relative=False)
+        if not mesh.isSolid() or mesh.hasNonManifolds():
+            raise RuntimeError("D%s mesh is not a closed manifold solid" % size)
+        hole = meshed_hole_dia(mesh)
+        loss = v("TemplateHoleModelD") - hole
+        if loss > MAX_HOLE_LOSS:
+            raise RuntimeError("D%s meshed hole %.4f loses %.4f mm (> %.3f)" % (size, hole, loss, MAX_HOLE_LOSS))
+        stl = os.path.join(PROJECT_DIR, "stl", "RecessTemplate-D%d.stl" % size)
+        tmf = os.path.join(PROJECT_DIR, "3mf", "RecessTemplate-D%d.3mf" % size)
+        mesh.write(stl)
+        mesh.write(tmf)
+        report.append({
+            "size": size, "plate": round(bb.XLength, 3), "thick": round(bb.ZLength, 3),
+            "hole_model": round(v("TemplateHoleModelD"), 3), "hole_mesh": round(hole, 4),
+            "relief_ledge": round((v("ReliefDiameter") - v("TemplateHoleModelD")) / 2, 3),
+            "band_z": (round(v("ReliefHeight"), 3), round(v("TemplateThick"), 3)),
+            "facets": mesh.CountFacets, "stl_bytes": os.path.getsize(stl), "3mf_bytes": os.path.getsize(tmf),
+        })
+finally:
+    vs.InlayDiameter = original
+    params.recompute()
+    doc.recompute()
+
+for r in report:
+    print("CIRJ-03 D%(size)d: plate %(plate)s x %(thick)s, hole model %(hole_model)s / mesh %(hole_mesh)s, "
+          "band z %(band_z)s, ledge %(relief_ledge)s, %(facets)d facets, "
+          "stl %(stl_bytes)d B, 3mf %(3mf_bytes)d B" % r)
+print("CIRJ-03: restored InlayDiameter = %g. Documents not saved." % original.Value)

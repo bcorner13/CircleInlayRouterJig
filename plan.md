@@ -137,9 +137,23 @@ centered on X/Y:
 
 No sketch attaches to a feature face.
 
-**Print orientation: top face down** (flipped in the slicer). The relief then widens going up, so it
-needs no supports. The bearing band prints on the first layers, so **enable elephant-foot compensation**.
-Otherwise the bearing band, the one surface that sets the recess size, comes out undersize.
+**Print orientation: as modeled, with the WORKPIECE (bottom) FACE ON THE BED.** Revised 2026-10-08 at export time.
+Rev 2 originally said top face down; that was reversed because:
+* **Strength:** flat is strongest either way. Layers run parallel to the plate, and the bearing's side load is
+  carried along continuous perimeters. Printing on edge would put layer lines across the load, and it wouldn't fit the bed.
+* **Fit accuracy (decisive):** bottom-down keeps the bearing band at z = ReliefHeight to TemplateThick (7.3–10.5), in the upper
+  layers and away from first-layer elephant foot. Top-down would put the fit-critical surface on the squished first layers.
+* **Label:** engraved into the top layers, so it prints crisp. Top-down would have turned its floor into 0.6 mm-high bridges.
+* **Only overhang:** the relief ledge, `(ReliefDiameter − TemplateHoleModelD)/2` = 0.85 mm, about two extrusion widths. It
+  prints without supports, and nothing touches it.
+* **Surfaces:** the workpiece face is bed-flat (good for tape and for sitting flat). The router glides on the top layers, so
+  enable **ironing** on top surfaces.
+
+`macros/03-export_print_files.FCMacro` exports in this orientation and asserts it (ZMin = 0, centered on X/Y). Don't flip it in the slicer.
+
+**Slicer notes for strength and fit:** use enough walls that the 3.2 mm bearing band is all perimeters (≥ 4 at a 0.4 mm
+line width), with ≥ 5 top layers. The hole wall's Z-seam leaves a bump the bearing rides over, so use a scarf seam if
+the slicer has one, or aligned seams (not random). *(Unverified for Creality Print; check its seam options.)*
 
 ## CONSTRAINT STRATEGY
 
@@ -162,7 +176,7 @@ Otherwise the bearing band, the one surface that sets the recess size, comes out
    - Measure the bit (cutter Ø/length, bearing Ø, bearing stack height) and update the Params.
    - Collet check: with the bit set ~`TemplateThick + RecessDepth` (~13.7 mm) below the base, confirm
      ≥ 3/4" of shank is in the collet and the collet nut clears the lock collar.
-6. **Physical:** print **Ø100** first, in the production material and top face down. Measure the
+6. **Physical:** print **Ø100** first, in the production material, bottom (workpiece) face on the bed, using `stl/RecessTemplate-D100.stl`. Measure the
    bearing band Ø on two axes. Set the slicer's XY shrink from the scale error, then `TemplateHolePrintComp`
    from any remaining constant offset. Check the plate's flatness. Rout scrap in **one full-depth pass**
    and dry-fit a laser-cut disc. Tune `InlayFitClearance` / `LaserKerf`.

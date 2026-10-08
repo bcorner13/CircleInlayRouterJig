@@ -40,7 +40,9 @@ Plan rev 2 approved, and the model was built 2026-10-08 (Ø150 default; audit cl
 1. Measure your bit (cutter Ø and length, bearing Ø, bearing stack height) and your disc
    (diameter, thickness). Enter them in `Params.FCStd`.
 2. Recompute `CircleInlayRouterJig.FCStd` and export `RecessTemplate`.
-3. Print **top face down** in PETG-rCF (or similar), with elephant-foot compensation on.
+3. Run `macros/03-export_print_files.FCMacro` to write `stl/` and `3mf/` for every size. Print them
+   **as exported, with the workpiece face on the bed** (don't flip), in PETG-rCF or similar, with
+   ≥ 4 walls and ironing on top surfaces.
    Check the hole with calipers and tune `TemplateHolePrintComp` if needed.
 4. Tape the template to the workpiece, aligning the edge notches to your layout lines.
 5. Set the bit depth to the disc thickness and rout in **one full-depth pass**, keeping the

@@ -105,6 +105,7 @@ No project-scoped memories yet. This is a fresh project (bootstrapped 2026-10-08
 - Macros are numbered `NN-name.FCMacro` and symlinked into `~/Library/Application Support/FreeCAD/v1-1/Macro/` with the prefix **`CIRJ-`** (e.g. `CIRJ-00-bootstrap_params.FCMacro`).
 - Multiple inlay sizes come from the same model by changing `InlayDiameter`. Export each one as `stl/RecessTemplate-D<diameter>.stl` rather than cloning bodies.
 - The guard hook also blocks Bash commands that merely *mention* `.FCStd` alongside `cat`/`grep`/etc. (e.g. heredocs). Author such files with the Write tool.
+- **Material**: PA6-CF12 or Fiberon PETG-rCF08 (PETG-rCF recommended, because PA6 swells with humidity). Percentage shrink is compensated **in the slicer filament profile**, never by scaling CAD values. `TemplateHolePrintComp` is per-material, so record it with the print profile. Abrasive CF filament needs a hardened nozzle.
 - Git: GitFlow (`main` + `develop`, `feature/*` off develop).
 
 ---

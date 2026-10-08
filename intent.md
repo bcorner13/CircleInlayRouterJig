@@ -15,6 +15,7 @@ Constraints:
 * Recess size must be derivable from the inlay diameter + tooling + laser kerf,
   so one knob (inlay diameter) re-sizes the template
 * Printable without supports
+* Material: PA6-CF12 or Polymaker Fiberon PETG-rCF08 (production material for test prints too)
 * Target inlay diameters: **100, 150, 200, 250 mm** (confirmed 2026-10-08); 150 mm is the first build
 * Router: **Milwaukee M18 FUEL compact router (2723-20)**, 5-3/4" template sub-base, Porter-Cable-style guides
 * Bushing OD, bushing protrusion, bit diameter: **TBD — Bradley to specify**

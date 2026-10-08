@@ -103,8 +103,34 @@ No sketch attaches to a feature face. Both base and top sketches use datum plane
 3. `part_check_shape` / `validate_object` report a valid, closed solid; bounding box is centered on the origin.
 4. Assert `TemplateThick > BushingProtrusion`, and `TemplateSide` ≤ 350 mm (K2 Plus bed).
    Exceeding the bed is a plan revision (see SIZE SET), not a Param tweak.
-5. Physical: print in PLA, measure the hole with calipers, and tune `TemplateHolePrintComp`.
+5. Physical: print the **Ø100** first (smallest, cheapest) in the production material, not PLA,
+   because the comp values are material-specific. Measure the hole on two axes with calipers, set
+   slicer shrinkage from the measured scale error, then tune `TemplateHolePrintComp` for any remaining
+   constant offset. Check the plate's flatness.
    Rout a test recess in scrap and dry-fit a laser-cut disc, then tune `InlayFitClearance`/`LaserKerf`.
+
+## MATERIAL
+
+Candidates (Bradley, 2026-10-08): **PA6-CF12** (brand TBD) or **Polymaker Fiberon PETG-rCF08**.
+
+* **Shrinkage scales with size.** On a 347 mm plate, even 0.2–0.3% XY shrink moves the Ø212 mm hole
+  by ~0.5 mm diametral, which is far more than `InlayFitClearance`. A constant per-side offset can't
+  correct a percentage error. So:
+  - **Percentage shrink is fixed in the slicer's per-filament XY shrinkage compensation**, not in CAD.
+    The CAD model stays true-size, and one STL serves both materials. *(Assumes Creality Print/Orca
+    exposes per-filament XY shrinkage. Verify in the slicer before relying on it.)*
+  - `TemplateHolePrintComp` covers only the constant "printed holes come out small" effect. Its
+    value is **per material**. Re-tune it when switching filaments, and record the value used in
+    the CLAUDE.md print profile.
+* **Recommendation: PETG-rCF08 for the templates.** PA6 absorbs moisture after printing and
+  swells, so a nylon hole's size drifts with the shop's humidity, and the fit would only be right on the day
+  it was measured. PETG-rCF barely absorbs water. PA6-CF is tougher and more heat-resistant, but
+  neither matters for a hand-router template.
+* Both are carbon-fiber filled and abrasive, so they need a **hardened nozzle** (confirm what the K2 Plus has fitted).
+  Both need **drying** before printing (PETG-rCF08: 65 °C / 3 h per the Polymaker TDS).
+* **Flatness matters**: a warped plate tilts the router and tapers the recess wall. Large flat plates
+  are the warp-prone case, so print in the enclosed chamber and check flatness with a straightedge
+  before use.
 
 ## SIZE SET
 

@@ -31,7 +31,7 @@ These restate the global rules in `~/.claude/CLAUDE.md` with project-specific co
 
 There's no multi-part assembly. One printed part sits in a three-layer physical stack:
 
-- **Workpiece** (bottom): the board receiving the inlay. The template is taped or clamped on top, with its 4 edge-midpoint `AlignNotch` notches aligned to layout lines through the intended recess center.
+- **Workpiece** (bottom): the board receiving the inlay. The template is taped or clamped on top, with the apexes of its 4 edge-midpoint **V notches** (90°, 8 deep × 16 wide) on a pencil crosshair drawn through the intended recess center. Each apex lies exactly on the hole's X/Y centerline.
 - **RecessTemplate** (middle): a square plate with a circular through-hole centered on X/Y, with its bottom face (workpiece side) at z = 0. The hole has an **underside relief**, a larger counterbore `ReliefDiameter` × `ReliefHeight` cut up from the bottom, so the spinning cutter never touches plastic. Above the relief is the **bearing band** (`BearingBand`, ~3.2 mm), the only wall the bearing rides. Printed **as modeled, with the workpiece (bottom) face on the bed**. That keeps the fit-critical bearing band in the upper layers, away from elephant foot, and the label engraves cleanly in the top layers. The only overhang is the 0.85 mm relief ledge. Flat is also the strongest orientation. Plan rev 2 first said top face down; this was reversed at export time, see plan.md "Print orientation". `macros/03-export_print_files.FCMacro` exports Ø100/150/200 to `stl/` + `3mf/` in this orientation. It meshes at 0.005 mm deflection and asserts the meshed hole loses ≤ 0.01 mm, because the 0.1 mm default lost 0.036 mm on a Ø200 hole.
 - **Router** (top): a Milwaukee M18 FUEL compact router (2723-20) on its 5-3/4" (146.05 mm) sub-base, with no guide bushing. The base rides on the plate's top face. The bit is a **top-bearing downcut pattern bit** (3/8" cutter × 3/8" length, two stacked bearings, then a set-screw lock collar). The bearing rides the bearing band, and the cutter below it cuts the recess wall on the bearing's path: `Recess = Hole − BearingOD + CutterDiameter`.
 - **Inlay disc**: laser cut separately (not printed, not modeled). It mates into the recess at `InlayFitClearance` per side. Its thickness is `RecessDepth`.
@@ -46,12 +46,12 @@ Design history: rev 1 of the plan used a guide-bushing inlay kit. It switched to
 
 | File | Role | Depends on | Status |
 |---|---|---|---|
-| `Params.FCStd` | VarSet: 31 variables (9 derived by expression) | — | ✅ created by macro 00 (2026-10-08) |
+| `Params.FCStd` | VarSet: 32 variables (9 derived by expression) | — | ✅ created by macro 00 (2026-10-08) |
 | `CircleInlayRouterJig.FCStd` | Body `RecessTemplate` + top-level `Label_Text` ShapeString | `Params.FCStd` | ✅ built by macros 01 + 02; audit clean; flex-tested |
 
 No broken files. Built 2026-10-08 and verified: the solid is valid; the volume matches the analytic value exactly (698,649.139 mm³ before the label); flex tests at Ø100/Ø200 and RecessDepth 4.2 measured equal to the Params. Not yet printed.
 
-**Model tree** (`RecessTemplate`, tip `Pocket_Label`): `DatumPlane_Base` → `Sk_Plate`/`Pad_Plate` → `Sk_Hole`/`Pocket_Hole` (ThroughAll, Reversed) → `Sk_Relief`/`Pocket_Relief` (Reversed) → `Sk_Notch`/`Pocket_Notch` → `PolarPattern_Notches` (×4) → `DatumPlane_Top` → `Binder_Label` → `Pocket_Label`. `Label_Text` (Draft ShapeString, outside the body) is attached to `DatumPlane_Top`, and its `String` is the expression `<<Ø%g>> % (InlayDiameter / 1mm)`. All sketches sit at z = 0 on `DatumPlane_Base`, so every pocket from them needs `Reversed = True` to cut up into the plate (verified on 1.1.3: not reversed removes nothing).
+**Model tree** (`RecessTemplate`, tip `Pocket_Label`): `DatumPlane_Base` → `Sk_Plate` (R`PlateCornerRadius` corners drawn in the sketch)/`Pad_Plate` → `Sk_Hole`/`Pocket_Hole` (ThroughAll, Reversed) → `Sk_Relief`/`Pocket_Relief` (Reversed) → `Sk_Notch` (V)/`Pocket_Notch` → `PolarPattern_Notches` (×4) → `DatumPlane_Top` → `Binder_Label` → `Pocket_Label`. `Label_Text` (Draft ShapeString, outside the body) is attached to `DatumPlane_Top`, and its `String` is the expression `<<Ø%g>> % (InlayDiameter / 1mm)`. All sketches sit at z = 0 on `DatumPlane_Base`, so every pocket from them needs `Reversed = True` to cut up into the plate (verified on 1.1.3: not reversed removes nothing).
 
 **Rebuild order:** `01-build_template` with `REBUILD=True` deletes the body, which orphans the label objects. Always follow it with `02-add_size_label` `REBUILD=True`.
 
@@ -63,7 +63,7 @@ See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists
 - **Inlay**: `InlayDiameter` (the size knob), `LaserKerf`, `RecessDepth` (disc thickness; drives plate height)
 - **Tooling**: `CutterDiameter`, `CutterLength`, `BearingOD`, `BearingStackHeight`, `RouterBaseDiameter`
 - **Clearance**: `InlayFitClearance`, `TemplateHolePrintComp`, `ReliefClearance`
-- **Template**: `ReliefGap`, `CollarGap`, `BaseSupportOverlap`, `AlignNotchWidth`, `AlignNotchDepth`
+- **Template**: `ReliefGap`, `CollarGap`, `BaseSupportOverlap`, `AlignNotchWidth`, `AlignNotchDepth`, `PlateCornerRadius`
 - **Label**: `LabelSize`, `LabelDepth`, `LabelInset` (bottom-left corner; outside the router-base sweep at every size, with the tightest margin at Ø100: 125.2 vs 118.3 mm)
 - **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `ReliefDiameter`, `ReliefHeight`, `TemplateThick`, `BearingBand` (validation only), `TemplateMargin`, `TemplateSide`
 

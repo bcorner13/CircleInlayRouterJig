@@ -96,8 +96,9 @@ All live in `Params.FCStd` → `VarSet`, created by `macros/00-bootstrap_params.
 | `ReliefGap` | Length | 1.0 mm | Template | Vertical gap, cutter top ↔ relief ceiling |
 | `CollarGap` | Length | 1.0 mm | Template | Vertical gap, plate top ↔ lock-collar bottom |
 | `BaseSupportOverlap` | Length | 2 mm | Template | Plate beyond the router base's outer edge |
-| `AlignNotchWidth` | Length | 3 mm | Template | Edge-midpoint alignment notch width |
-| `AlignNotchDepth` | Length | 3 mm | Template | Notch depth into the plate edge |
+| `AlignNotchWidth` | Length | 16 mm | Template | V alignment notch: mouth width at the plate edge (16 × 8 deep = 90° V) |
+| `AlignNotchDepth` | Length | 8 mm | Template | V alignment notch: edge-to-apex depth (Bradley, 2026-10-08) |
+| `PlateCornerRadius` | Length | 10 mm | Template | Fillet on the plate's 4 outer corners: less corner lift when printing, no sharp corners |
 | `RecessDiameter` | Length | *derived* | Derived | see Concept |
 | `TemplateHoleDiameter` | Length | *derived* | Derived | see Concept |
 | `TemplateHoleModelD` | Length | *derived* | Derived | Hole as modeled (includes print comp) |
@@ -125,13 +126,15 @@ before the cutter touches the relief ceiling or the collar touches the plate top
 centered on X/Y:
 
 1. `DatumPlane_Base`: PartDesign::Plane on Origin XY (offset 0)
-2. `Sk_Plate` on `DatumPlane_Base`: square, side `TemplateSide`, symmetric about the origin
+2. `Sk_Plate` on `DatumPlane_Base`: square, side `TemplateSide`, symmetric about the origin, with corners rounded **in the sketch**
+   (tangent arcs, radius `PlateCornerRadius`). That avoids a PartDesign Fillet, which selects edges by index
 3. `Pad_Plate`: Length = `TemplateThick` (+Z)
 4. `Sk_Hole` on `DatumPlane_Base`: circle Ø `TemplateHoleModelD` at the origin
 5. `Pocket_Hole`: ThroughAll
 6. `Sk_Relief` on `DatumPlane_Base`: circle Ø `ReliefDiameter` at the origin
 7. `Pocket_Relief`: Length = `ReliefHeight`, cutting up from the bottom face
-8. `Sk_Notches` on `DatumPlane_Base`: 4 notch rectangles at the edge midpoints on the X/Y axes
+8. `Sk_Notch` on `DatumPlane_Base`: one **V notch** (90°, apex on the X axis `AlignNotchDepth` inside the +X edge, mouth
+   `AlignNotchWidth` wide at the edge), polar-patterned ×4 onto the edge midpoints
 9. `Pocket_Notches`: ThroughAll
 10. `DatumPlane_Top`: offset `TemplateThick`. Created only if a top-face label is approved (Open Q 6)
 

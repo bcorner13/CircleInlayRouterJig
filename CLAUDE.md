@@ -46,10 +46,14 @@ Design history: rev 1 of the plan used a guide-bushing inlay kit. It switched to
 
 | File | Role | Depends on | Status |
 |---|---|---|---|
-| `Params.FCStd` | VarSet: all parametric variables | — | ❌ not created yet; run `macros/00-bootstrap_params.FCMacro` after plan approval |
-| `CircleInlayRouterJig.FCStd` | Body `RecessTemplate` | `Params.FCStd` | ❌ not created yet; awaiting plan.md approval |
+| `Params.FCStd` | VarSet: 31 variables (9 derived by expression) | — | ✅ created by macro 00 (2026-10-08) |
+| `CircleInlayRouterJig.FCStd` | Body `RecessTemplate` + top-level `Label_Text` ShapeString | `Params.FCStd` | ✅ built by macros 01 + 02; audit clean; flex-tested |
 
-No broken files. Neither FCStd exists yet. The project is scaffolded and its plan is pending approval.
+No broken files. Built 2026-10-08 and verified: the solid is valid; the volume matches the analytic value exactly (698,649.139 mm³ before the label); flex tests at Ø100/Ø200 and RecessDepth 4.2 measured equal to the Params. Not yet printed.
+
+**Model tree** (`RecessTemplate`, tip `Pocket_Label`): `DatumPlane_Base` → `Sk_Plate`/`Pad_Plate` → `Sk_Hole`/`Pocket_Hole` (ThroughAll, Reversed) → `Sk_Relief`/`Pocket_Relief` (Reversed) → `Sk_Notch`/`Pocket_Notch` → `PolarPattern_Notches` (×4) → `DatumPlane_Top` → `Binder_Label` → `Pocket_Label`. `Label_Text` (Draft ShapeString, outside the body) is attached to `DatumPlane_Top`, and its `String` is the expression `<<Ø%g>> % (InlayDiameter / 1mm)`. All sketches sit at z = 0 on `DatumPlane_Base`, so every pocket from them needs `Reversed = True` to cut up into the plate (verified on 1.1.3: not reversed removes nothing).
+
+**Rebuild order:** `01-build_template` with `REBUILD=True` deletes the body, which orphans the label objects. Always follow it with `02-add_size_label` `REBUILD=True`.
 
 ---
 
@@ -60,6 +64,7 @@ See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists
 - **Tooling**: `CutterDiameter`, `CutterLength`, `BearingOD`, `BearingStackHeight`, `RouterBaseDiameter`
 - **Clearance**: `InlayFitClearance`, `TemplateHolePrintComp`, `ReliefClearance`
 - **Template**: `ReliefGap`, `CollarGap`, `BaseSupportOverlap`, `AlignNotchWidth`, `AlignNotchDepth`
+- **Label**: `LabelSize`, `LabelDepth`, `LabelInset` (bottom-left corner; outside the router-base sweep at every size, with the tightest margin at Ø100: 125.2 vs 118.3 mm)
 - **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `ReliefDiameter`, `ReliefHeight`, `TemplateThick`, `BearingBand` (validation only), `TemplateMargin`, `TemplateSide`
 
 Size set Ø100/150/200 (default 150). **Ø250 is on the backlog** (plan.md BACKLOG): its plate would be ~390.6 mm, over the bed. `RecessDepth` = 3.2: discs are 3.1–3.2 mm thick, and the recess is sized for the thickest because the engraved discs can't be sanded flush. `LaserKerf` = 0: Bradley measured it at < .0007 in (0.018 mm), which is negligible. `RouterBaseDiameter` = 146.05 comes from the Milwaukee 2723-20 sub-base spec (sourced online; measure to confirm). The bit dims are listing values, and `BearingStackHeight` = 5.2 is **estimated from the listing drawing**. Measure them on arrival. Bed fit: Ø100/150/200 → 240.6/290.6/340.6 mm (Ø200 has ~9.4 mm spare). Asserts (the macro checks these): `BearingBand ≥ 2.5`, `TemplateSide ≤ 350`.
@@ -110,6 +115,9 @@ No project-scoped memories yet. This is a fresh project (bootstrapped 2026-10-08
 - Multiple inlay sizes come from the same model by changing `InlayDiameter`. Export each one as `stl/RecessTemplate-D<diameter>.stl` rather than cloning bodies.
 - The guard hook also blocks Bash commands that merely *mention* `.FCStd` alongside `cat`/`grep`/etc. (e.g. heredocs). Author such files with the Write tool.
 - **Material**: PA6-CF12 or Fiberon PETG-rCF08 (PETG-rCF recommended, because PA6 swells with humidity). Percentage shrink is compensated **in the slicer filament profile**, never by scaling CAD values. `TemplateHolePrintComp` is per-material, so record it with the print profile. Abrasive CF filament needs a hardened nozzle.
+- **Close other projects' `Params` documents first.** `<<Params>>#VarSet.…` resolves by document *label*, and other projects (e.g. MagicCardBox) also have a doc labelled `Params`. Macro 00 aborts if a foreign `Params` is open. Macros match this project's documents by **file path**, never by name.
+- **Cross-document bindings need a saved owner.** FreeCAD 1.1.3 raises `Owner document not saved` when you `setExpression` to `<<Params>>` from an unsaved document. Macro 01 saves the empty model file before binding.
+- **Label text format**: `str()` in expressions renders lengths as "150.0", so use `<<Ø%g>> % (… / 1mm)`. `int()` doesn't exist in FreeCAD expressions.
 - Git: GitFlow (`main` + `develop`, `feature/*` off develop).
 
 ---

@@ -1,0 +1,164 @@
+# -*- coding: utf-8 -*-
+"""01-build_template — build Body `RecessTemplate` in CircleInlayRouterJig.FCStd.
+
+plan.md rev 2, FEATURE TREE steps 1–9:
+  DatumPlane_Base -> Sk_Plate/Pad_Plate -> Sk_Hole/Pocket_Hole (ThroughAll)
+  -> Sk_Relief/Pocket_Relief (ReliefHeight, up from the bottom face)
+  -> Sk_Notch/Pocket_Notch (ThroughAll) -> PolarPattern_Notches (x4)
+
+Every sketch is fully constrained to the origin/axes; every dimension and feature length
+is bound to <<Params>>#VarSet.<Name>. No literal dimensions.
+
+Idempotent: if `RecessTemplate` already exists this does nothing, unless run with
+REBUILD=True (run_macro args), which deletes the body and rebuilds it from scratch.
+Opens this project's Params.FCStd if needed. Does NOT save the built body — the only
+save is creating an empty CircleInlayRouterJig.FCStd when none exists (FreeCAD refuses
+cross-document expressions from an unsaved document).
+"""
+import os
+import FreeCAD as App
+import Part
+import Sketcher
+
+PROJECT_DIR = os.path.expanduser(
+    "~/Documents/3dPrinting/Commercial License/CircleInlayRouterJig")
+PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
+MODEL_PATH = os.path.join(PROJECT_DIR, "CircleInlayRouterJig.FCStd")
+P = "<<Params>>#VarSet."
+
+try:
+    REBUILD
+except NameError:
+    REBUILD = False
+
+
+def find_doc(path):
+    for d in App.listDocuments().values():
+        if d.FileName and os.path.abspath(d.FileName) == path:
+            return d
+    return None
+
+
+params = find_doc(PARAMS_PATH) or App.openDocument(PARAMS_PATH)
+vs = params.getObject("VarSet")
+
+
+def v(name):
+    return getattr(vs, name).Value
+
+
+doc = find_doc(MODEL_PATH)
+if doc is None:
+    if os.path.exists(MODEL_PATH):
+        doc = App.openDocument(MODEL_PATH)
+    else:
+        # Cross-document expressions refuse an unsaved owner ("Owner document not saved"),
+        # so the new, empty model file must exist on disk before the first binding.
+        doc = App.newDocument("CircleInlayRouterJig")
+        doc.saveAs(MODEL_PATH)
+
+old = doc.getObject("RecessTemplate")
+if old is not None and not REBUILD:
+    App.Console.PrintMessage("CIRJ-01: RecessTemplate exists; nothing to do (pass REBUILD=True to rebuild).\n")
+else:
+    if old is not None:
+        old.removeObjectsFromDocument()
+        doc.removeObject(old.Name)
+        doc.recompute()
+
+    body = doc.addObject("PartDesign::Body", "RecessTemplate")
+    origin = {f.Role: f for f in body.Origin.OriginFeatures}
+
+    # 1. Datum plane on the workpiece face (z = 0)
+    dp = body.newObject("PartDesign::Plane", "DatumPlane_Base")
+    dp.AttachmentSupport = [(origin["XY_Plane"], "")]
+    dp.MapMode = "FlatFace"
+
+    def new_sketch(name):
+        sk = body.newObject("Sketcher::SketchObject", name)
+        sk.AttachmentSupport = [(dp, "")]
+        sk.MapMode = "FlatFace"
+        return sk
+
+    def bind(sk, idx, expr):
+        sk.setExpression("Constraints[%d]" % idx, expr)
+
+    def rect(sk, x0, y0, x1, y1, left_vertical=True):
+        """Closed axis-aligned rectangle; returns the first geo id.
+        left_vertical=False when the caller makes the left corners symmetric about the H axis,
+        which already forces the left edge vertical (a Vertical on top is redundant -> solver -2)."""
+        pts = [App.Vector(x0, y0, 0), App.Vector(x1, y0, 0), App.Vector(x1, y1, 0), App.Vector(x0, y1, 0)]
+        g0 = sk.GeometryCount
+        for i in range(4):
+            sk.addGeometry(Part.LineSegment(pts[i], pts[(i + 1) % 4]))
+        for i in range(4):
+            sk.addConstraint(Sketcher.Constraint("Coincident", g0 + i, 2, g0 + (i + 1) % 4, 1))
+        sk.addConstraint(Sketcher.Constraint("Horizontal", g0 + 0))
+        sk.addConstraint(Sketcher.Constraint("Horizontal", g0 + 2))
+        sk.addConstraint(Sketcher.Constraint("Vertical", g0 + 1))
+        if left_vertical:
+            sk.addConstraint(Sketcher.Constraint("Vertical", g0 + 3))
+        return g0
+
+    # 2–3. Plate: square TemplateSide, symmetric about the origin, padded TemplateThick
+    S = v("TemplateSide")
+    sk = new_sketch("Sk_Plate")
+    g = rect(sk, -S / 2, -S / 2, S / 2, S / 2)
+    sk.addConstraint(Sketcher.Constraint("Symmetric", g + 0, 1, g + 2, 1, -1, 1))
+    c = sk.addConstraint(Sketcher.Constraint("DistanceX", g + 0, 1, g + 0, 2, S))
+    bind(sk, c, P + "TemplateSide")
+    c = sk.addConstraint(Sketcher.Constraint("DistanceY", g + 1, 1, g + 1, 2, S))
+    bind(sk, c, P + "TemplateSide")
+
+    pad = body.newObject("PartDesign::Pad", "Pad_Plate")
+    pad.Profile = sk
+    pad.Length = v("TemplateThick")
+    pad.setExpression("Length", P + "TemplateThick")
+
+    def circle_sketch(name, dia_param):
+        sk = new_sketch(name)
+        sk.addGeometry(Part.Circle(App.Vector(0, 0, 0), App.Vector(0, 0, 1), v(dia_param) / 2))
+        sk.addConstraint(Sketcher.Constraint("Coincident", 0, 3, -1, 1))
+        c = sk.addConstraint(Sketcher.Constraint("Diameter", 0, v(dia_param)))
+        bind(sk, c, P + dia_param)
+        return sk
+
+    # 4–5. Bearing-wall hole, through all (cut upward from the z = 0 sketch)
+    po = body.newObject("PartDesign::Pocket", "Pocket_Hole")
+    po.Profile = circle_sketch("Sk_Hole", "TemplateHoleModelD")
+    po.Type = "ThroughAll"
+    po.Reversed = True
+
+    # 6–7. Underside relief: ReliefDiameter x ReliefHeight, cut up from the bottom face
+    pr = body.newObject("PartDesign::Pocket", "Pocket_Relief")
+    pr.Profile = circle_sketch("Sk_Relief", "ReliefDiameter")
+    pr.Type = "Length"
+    pr.Length = v("ReliefHeight")
+    pr.setExpression("Length", P + "ReliefHeight")
+    pr.Reversed = True
+
+    # 8–9. Alignment notch on the +X edge, centred on the edge line, then x4 polar pattern
+    W, D = v("AlignNotchWidth"), v("AlignNotchDepth")
+    sk = new_sketch("Sk_Notch")
+    g = rect(sk, S / 2 - D, -W / 2, S / 2 + D, W / 2, left_vertical=False)
+    sk.addConstraint(Sketcher.Constraint("Symmetric", g + 0, 1, g + 3, 1, -1))   # about the H axis
+    c = sk.addConstraint(Sketcher.Constraint("DistanceX", -1, 1, g + 0, 1, S / 2 - D))
+    bind(sk, c, P + "TemplateSide / 2 - " + P + "AlignNotchDepth")
+    c = sk.addConstraint(Sketcher.Constraint("DistanceX", g + 0, 1, g + 0, 2, 2 * D))
+    bind(sk, c, "2 * " + P + "AlignNotchDepth")
+    c = sk.addConstraint(Sketcher.Constraint("DistanceY", g + 1, 1, g + 1, 2, W))
+    bind(sk, c, P + "AlignNotchWidth")
+
+    pn = body.newObject("PartDesign::Pocket", "Pocket_Notch")
+    pn.Profile = sk
+    pn.Type = "ThroughAll"
+    pn.Reversed = True
+
+    pp = body.newObject("PartDesign::PolarPattern", "PolarPattern_Notches")
+    pp.Originals = [pn]
+    pp.Axis = (origin["Z_Axis"], [""])
+    pp.Occurrences = 4      # one notch per square edge (topology, not a dimension)
+    body.Tip = pp
+
+    doc.recompute()
+    App.Console.PrintMessage("CIRJ-01: RecessTemplate built. Not saved.\n")

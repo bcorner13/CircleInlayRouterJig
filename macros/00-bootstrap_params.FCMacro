@@ -37,6 +37,9 @@ PARAMS = [
     ("BaseSupportOverlap",    "App::PropertyLength", "Template",  2.0,    "Plate beyond the router base's outer edge, bearing on the wall"),
     ("AlignNotchWidth",       "App::PropertyLength", "Template",  3.0,    "Width of edge-midpoint alignment notches"),
     ("AlignNotchDepth",       "App::PropertyLength", "Template",  3.0,    "Depth of edge-midpoint alignment notches"),
+    ("LabelSize",             "App::PropertyLength", "Label",     10.0,   "Engraved size-label text height"),
+    ("LabelDepth",            "App::PropertyLength", "Label",     0.6,    "Engraved size-label depth into the top face"),
+    ("LabelInset",            "App::PropertyLength", "Label",     12.0,   "Label offset from the plate's corner edges (outside the router-base sweep)"),
     # Derived — value is set by expression below
     ("RecessDiameter",        "App::PropertyLength", "Derived",   0.0,    "Routed recess diameter (derived)"),
     ("TemplateHoleDiameter",  "App::PropertyLength", "Derived",   0.0,    "Functional hole diameter = bearing wall (derived)"),
@@ -66,9 +69,16 @@ BED_SIZE = 350.0         # mm — Creality K2 Plus
 
 
 def get_params_doc():
+    # Match by FILE PATH only. Other projects also have a doc named/labelled "Params";
+    # touching theirs would corrupt them, and two "Params" labels make <<Params>> ambiguous.
     for d in App.listDocuments().values():
-        if d.Name == "Params" or os.path.abspath(d.FileName or "") == PARAMS_PATH:
+        if d.FileName and os.path.abspath(d.FileName) == PARAMS_PATH:
             return d
+    for d in App.listDocuments().values():
+        if d.Name == "Params" or d.Label == "Params":
+            raise RuntimeError(
+                "CIRJ-00: another project's Params is open (%s). Close it first — "
+                "<<Params>> expressions resolve by label." % (d.FileName or d.Name))
     if os.path.exists(PARAMS_PATH):
         return App.openDocument(PARAMS_PATH)
     return App.newDocument("Params")

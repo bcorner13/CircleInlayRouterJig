@@ -18,7 +18,9 @@ Sizes planned: Ø100, Ø150, Ø200 (single piece on a 350 mm bed), for 3.1–3.2
 
 ## Status
 
-Scaffolded 2026-10-08. The design plan (`plan.md`, rev 2) is awaiting approval, and no geometry exists yet.
+Plan rev 2 approved, and the model was built 2026-10-08 (Ø150 default; audit clean; flex-tested at Ø100/150/200). Not yet test-printed.
+
+![Top side](images/RecessTemplate-D150-topside.png)
 
 ## Layout
 

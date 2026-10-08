@@ -22,7 +22,7 @@ PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
 # (name, type, group, default, doc)
 PARAMS = [
     ("InlayDiameter",         "App::PropertyLength", "Inlay",     150.0,  "Nominal laser-cut disc diameter (size knob)"),
-    ("LaserKerf",             "App::PropertyLength", "Inlay",     0.0,    "Diameter lost by the disc to laser kerf; measured < .0007, negligible"),
+    ("LaserKerf",             "App::PropertyLength", "Inlay",     0.0,    "Diameter lost by the disc to laser kerf; measured < .0007 in (0.018 mm), negligible"),
     ("RecessDepth",           "App::PropertyLength", "Inlay",     3.2,    "Routed depth = thickest disc (3.1-3.2); engraved discs sit flush to 0.1 below; drives plate height"),
     ("CutterDiameter",        "App::PropertyLength", "Tooling",   9.525,  "Measured cutter diameter, 3/8in pattern bit [TBD measure]"),
     ("CutterLength",          "App::PropertyLength", "Tooling",   9.525,  "Measured cutting length [TBD measure]"),

@@ -19,7 +19,7 @@ Constraints:
 * Material: PA6-CF12 or Polymaker Fiberon PETG-rCF08 (production material for test prints too)
 * Target inlay diameters: **100, 150, 200 mm** (confirmed 2026-10-08); 150 mm is the first build.
   250 mm is on the backlog (too big for the bed in one piece)
-* Disc thickness 3.1–3.2 mm; laser kerf negligible (< .0007)
+* Disc thickness 3.1–3.2 mm; laser kerf negligible (< .0007 in = 0.018 mm)
 * Router: **Milwaukee M18 FUEL compact router (2723-20)**, 5-3/4" sub-base
 * Bit: top-bearing downcut flush-trim, 3/8" cutter × 3/8" cutting length, 1/4" shank
   (Jiiolioa, Amazon). Exact dims to be measured on arrival

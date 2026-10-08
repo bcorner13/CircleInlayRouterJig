@@ -9,7 +9,7 @@ decision). Rev 1 (bushing kit) is in git history.
 
 `images/reference-IMG_0491.jpg`: the inlay is a laser-cut, laser-engraved wooden disc (a St. Benedict
 medal, light plywood/basswood). It's engraved before inlaying, so the disc's cut edge is the only fit surface.
-Discs are **3.1–3.2 mm** thick, and their laser kerf is negligible (< .0007). Size set: **Ø100 / 150 / 200**, with Ø150 first.
+Discs are **3.1–3.2 mm** thick, and their laser kerf is negligible (< .0007 in = 0.018 mm). Size set: **Ø100 / 150 / 200**, with Ø150 first.
 Ø250 is on the **backlog** (see the end of this plan).
 
 ## Tooling
@@ -83,7 +83,7 @@ All live in `Params.FCStd` → `VarSet`, created by `macros/00-bootstrap_params.
 | Name | Type | Default | Group | Meaning |
 |---|---|---|---|---|
 | `InlayDiameter` | Length | 150 mm | Inlay | Nominal laser-cut disc diameter (the size knob) |
-| `LaserKerf` | Length | 0 mm | Inlay | Diameter the disc loses to laser kerf. Measured < .0007, so negligible; the knob is kept for other lasers/materials |
+| `LaserKerf` | Length | 0 mm | Inlay | Diameter the disc loses to laser kerf. Measured < .0007 in (0.018 mm), so negligible; the knob is kept for other lasers/materials |
 | `RecessDepth` | Length | 3.2 mm | Inlay | Routed depth = the **thickest** disc (range 3.1–3.2), because the engraved discs can't be sanded flush, so they sit flush to 0.1 below. Drives plate height |
 | `CutterDiameter` | Length | 9.525 mm **TBD** | Tooling | Measured cutter Ø (3/8") |
 | `CutterLength` | Length | 9.525 mm **TBD** | Tooling | Measured cutting length (3/8") |

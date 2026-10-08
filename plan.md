@@ -154,6 +154,10 @@ The Ø200 margin is so thin that a larger `BushingOD` or `BaseSupportOverlap` wo
 
 1. ~~Router~~: **Milwaukee M18 FUEL compact router (2723-20)**, using its 5-3/4" template sub-base (Porter-Cable-style
    guides, 1-3/16" hole); answered 2026-10-08. Still open: which bushing OD, its protrusion length, and the bit diameter.
+   Candidate kit: Alocs "71333" brass inlay kit (bushing + snap-on collar + 1/8" downcut spiral on a 1/4" shank +
+   centering pin, sized for 1/4" templates). Its bushing/collar ODs aren't published, so **measure with calipers on arrival**:
+   bushing OD, collar OD, protrusion below the base, and actual bit diameter. Plan to run **collar off**
+   (the collar is only for routing a plug, and laser-cut discs don't need one; the smaller OD also shrinks the plate).
 2. ~~Sizes~~: **Ø100/150/200/250** (answered 2026-10-08). Still open: disc thickness. Disc thickness sets the router
    plunge depth. It doesn't drive template geometry, so it gets no Param unless something uses it.
 3. Laser: does the laser software compensate for kerf, and what's the measured kerf?

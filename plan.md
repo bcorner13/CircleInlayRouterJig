@@ -98,6 +98,9 @@ All live in `Params.FCStd` → `VarSet`, created by `macros/00-bootstrap_params.
 | `BaseSupportOverlap` | Length | 2 mm | Template | Plate beyond the router base's outer edge |
 | `AlignNotchWidth` | Length | 16 mm | Template | V alignment notch: mouth width at the plate edge (16 × 8 deep = 90° V) |
 | `AlignNotchDepth` | Length | 8 mm | Template | V alignment notch: edge-to-apex depth (Bradley, 2026-10-08) |
+| `StandoffHeight` | Length | 0 mm (off) | Standoff | Optional ring foot: raises the underside outside the ring so a low lip can pass under the margin. 0 = feature suppressed |
+| `FootRingWidth` | Length | 15 mm | Standoff | Radial width of the ring foot around the relief |
+| `FootRingDiameter` | Length | *derived* | Derived | `ReliefDiameter + 2·FootRingWidth` (182.1 at Ø150) |
 | `PlateCornerRadius` | Length | 10 mm | Template | Fillet on the plate's 4 outer corners: less corner lift when printing, no sharp corners |
 | `RecessDiameter` | Length | *derived* | Derived | see Concept |
 | `TemplateHoleDiameter` | Length | *derived* | Derived | see Concept |
@@ -133,6 +136,8 @@ centered on X/Y:
 5. `Pocket_Hole`: ThroughAll
 6. `Sk_Relief` on `DatumPlane_Base`: circle Ø `ReliefDiameter` at the origin
 7. `Pocket_Relief`: Length = `ReliefHeight`, cutting up from the bottom face
+7b. `Sk_Standoff` (circle `FootRingDiameter` + circle `2·TemplateSide`) / `Pocket_Standoff`: Length = `StandoffHeight`,
+   `Suppressed` = `StandoffHeight == 0mm` (optional ring foot, see OPTION section)
 8. `Sk_Notch` on `DatumPlane_Base`: one **V notch** (90°, apex on the X axis `AlignNotchDepth` inside the +X edge, mouth
    `AlignNotchWidth` wide at the edge), polar-patterned ×4 onto the edge midpoints
 9. `Pocket_Notches`: ThroughAll
@@ -202,6 +207,26 @@ because PA6 absorbs moisture and swells, so a nylon hole drifts with shop humidi
 * CF filament is abrasive, so it needs a **hardened nozzle**. Dry before printing (PETG-rCF08: 65 °C / 3 h, per the Polymaker TDS).
 * Flatness matters, since warp tilts the router. Print in the enclosed chamber and check with a straightedge.
 * The bearings ride on printed CF-PETG; expect slow wear of the bearing band over many uses.
+
+## OPTION: STANDOFF RING FOOT (furniture with a low lip), added 2026-10-08
+
+For pieces where a lip would sit **under** the template, e.g. edge molding (Bradley's example: a bamboo bed
+tray with a guardrail rim). `StandoffHeight > 0` un-suppresses `Pocket_Standoff`, which removes `StandoffHeight` from the
+underside everywhere outside a **ring foot** of diameter `FootRingDiameter` around the relief:
+
+* The ring always lands on the flat field around the inlay. The router's center (~73 mm from center at Ø150) stays inside
+  the ring (~91 mm), so it's stable. A lip may pass under the raised margin if it is **lower than `StandoffHeight`** and
+  **farther than `FootRingDiameter/2` from the inlay center**.
+* The bearing band is measured from the wood, so it **doesn't move**, and the bit setup stays the same.
+* **Limit:** the plate web `TemplateThick − StandoffHeight` must be ≥ 4 mm (asserted by macro 03), so `StandoffHeight` ≤ ~6.5 mm with
+  the current bit. Taller lips need a bit with a longer cutting length (raise `CutterLength`).
+* **Print orientation flips:** with feet, macro 03 exports **top face down**, because bottom-down would leave the whole margin as an
+  overhang. Files are tagged `-S<height>`, and **elephant-foot compensation is required**, since the bearing band is then on the first layers.
+* Often unnecessary: if the field inside a rim is at least as large as the plate, the template just sits on the field.
+  Measure first.
+
+Verified: suppressed at 0 (volume unchanged); at 5 mm it removed exactly (plate outline − ring) × 5; bearing band unchanged;
+the flipped export read back with the band at the bed and only the ring above the standoff.
 
 ## SIZE SET & BED FIT
 

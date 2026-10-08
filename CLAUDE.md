@@ -46,12 +46,12 @@ Design history: rev 1 of the plan used a guide-bushing inlay kit. It switched to
 
 | File | Role | Depends on | Status |
 |---|---|---|---|
-| `Params.FCStd` | VarSet: 32 variables (9 derived by expression) | — | ✅ created by macro 00 (2026-10-08) |
+| `Params.FCStd` | VarSet: 35 variables (9 derived by expression) | — | ✅ created by macro 00 (2026-10-08) |
 | `CircleInlayRouterJig.FCStd` | Body `RecessTemplate` + top-level `Label_Text` ShapeString | `Params.FCStd` | ✅ built by macros 01 + 02; audit clean; flex-tested |
 
 No broken files. Built 2026-10-08 and verified: the solid is valid; the volume matches the analytic value exactly (698,649.139 mm³ before the label); flex tests at Ø100/Ø200 and RecessDepth 4.2 measured equal to the Params. Not yet printed.
 
-**Model tree** (`RecessTemplate`, tip `Pocket_Label`): `DatumPlane_Base` → `Sk_Plate` (R`PlateCornerRadius` corners drawn in the sketch)/`Pad_Plate` → `Sk_Hole`/`Pocket_Hole` (ThroughAll, Reversed) → `Sk_Relief`/`Pocket_Relief` (Reversed) → `Sk_Notch` (V)/`Pocket_Notch` → `PolarPattern_Notches` (×4) → `DatumPlane_Top` → `Binder_Label` → `Pocket_Label`. `Label_Text` (Draft ShapeString, outside the body) is attached to `DatumPlane_Top`, and its `String` is the expression `<<Ø%g>> % (InlayDiameter / 1mm)`. All sketches sit at z = 0 on `DatumPlane_Base`, so every pocket from them needs `Reversed = True` to cut up into the plate (verified on 1.1.3: not reversed removes nothing).
+**Model tree** (`RecessTemplate`, tip `Pocket_Label`): `DatumPlane_Base` → `Sk_Plate` (R`PlateCornerRadius` corners drawn in the sketch)/`Pad_Plate` → `Sk_Hole`/`Pocket_Hole` (ThroughAll, Reversed) → `Sk_Relief`/`Pocket_Relief` (Reversed) → `Sk_Standoff`/`Pocket_Standoff` (optional ring foot; `Suppressed` is bound to `StandoffHeight == 0mm`) → `Sk_Notch` (V)/`Pocket_Notch` → `PolarPattern_Notches` (×4) → `DatumPlane_Top` → `Binder_Label` → `Pocket_Label`. `Label_Text` (Draft ShapeString, outside the body) is attached to `DatumPlane_Top`, and its `String` is the expression `<<Ø%g>> % (InlayDiameter / 1mm)`. All sketches sit at z = 0 on `DatumPlane_Base`, so every pocket from them needs `Reversed = True` to cut up into the plate (verified on 1.1.3: not reversed removes nothing).
 
 **Rebuild order:** `01-build_template` with `REBUILD=True` deletes the body, which orphans the label objects. Always follow it with `02-add_size_label` `REBUILD=True`.
 
@@ -64,6 +64,7 @@ See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists
 - **Tooling**: `CutterDiameter`, `CutterLength`, `BearingOD`, `BearingStackHeight`, `RouterBaseDiameter`
 - **Clearance**: `InlayFitClearance`, `TemplateHolePrintComp`, `ReliefClearance`
 - **Template**: `ReliefGap`, `CollarGap`, `BaseSupportOverlap`, `AlignNotchWidth`, `AlignNotchDepth`, `PlateCornerRadius`
+- **Standoff** (optional ring foot): `StandoffHeight` (0 = off), `FootRingWidth`; derived `FootRingDiameter`. With feet on, macro 03 exports **top face down** with a `-S<h>` file suffix, and asserts a plate web ≥ 4 mm (so ≤ ~6.5 mm with this bit). See plan.md OPTION section.
 - **Label**: `LabelSize`, `LabelDepth`, `LabelInset` (bottom-left corner; outside the router-base sweep at every size, with the tightest margin at Ø100: 125.2 vs 118.3 mm)
 - **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `ReliefDiameter`, `ReliefHeight`, `TemplateThick`, `BearingBand` (validation only), `TemplateMargin`, `TemplateSide`
 

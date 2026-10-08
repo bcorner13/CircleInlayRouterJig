@@ -38,6 +38,8 @@ PARAMS = [
     ("AlignNotchWidth",       "App::PropertyLength", "Template",  16.0,   "V alignment notch: mouth width at the plate edge (16 x 8 deep = 90 deg V)"),
     ("AlignNotchDepth",       "App::PropertyLength", "Template",  8.0,    "V alignment notch: depth from the plate edge to the apex"),
     ("PlateCornerRadius",     "App::PropertyLength", "Template",  10.0,   "Fillet radius of the plate's four outer corners (in Sk_Plate)"),
+    ("StandoffHeight",        "App::PropertyLength", "Standoff",  0.0,    "Optional ring-foot standoff: underside outside the foot ring is raised this much so a low lip can pass under the margin. 0 = off (feature suppressed)"),
+    ("FootRingWidth",         "App::PropertyLength", "Standoff",  15.0,   "Radial width of the ring foot around the relief (rests on the field around the inlay)"),
     ("LabelSize",             "App::PropertyLength", "Label",     10.0,   "Engraved size-label text height"),
     ("LabelDepth",            "App::PropertyLength", "Label",     0.6,    "Engraved size-label depth into the top face"),
     ("LabelInset",            "App::PropertyLength", "Label",     12.0,   "Label offset from the plate's corner edges (outside the router-base sweep)"),
@@ -49,6 +51,7 @@ PARAMS = [
     ("ReliefHeight",          "App::PropertyLength", "Derived",   0.0,    "Underside relief height (derived)"),
     ("TemplateThick",         "App::PropertyLength", "Derived",   0.0,    "Plate thickness (derived)"),
     ("BearingBand",           "App::PropertyLength", "Derived",   0.0,    "Wall height the bearing rides; validation only (derived)"),
+    ("FootRingDiameter",      "App::PropertyLength", "Derived",   0.0,    "Outer diameter of the standoff ring foot (derived)"),
     ("TemplateMargin",        "App::PropertyLength", "Derived",   0.0,    "Plate material outside the hole, each side (derived)"),
     ("TemplateSide",          "App::PropertyLength", "Derived",   0.0,    "Square plate side (derived)"),
 ]
@@ -61,6 +64,7 @@ DERIVED = {
     "ReliefHeight":         "CutterLength - RecessDepth + ReliefGap",
     "TemplateThick":        "CutterLength - RecessDepth + BearingStackHeight - CollarGap",
     "BearingBand":          "TemplateThick - ReliefHeight",
+    "FootRingDiameter":     "ReliefDiameter + 2 * FootRingWidth",
     "TemplateMargin":       "RouterBaseDiameter / 2 - BearingOD / 2 + BaseSupportOverlap",
     "TemplateSide":         "TemplateHoleDiameter + 2 * TemplateMargin",
 }

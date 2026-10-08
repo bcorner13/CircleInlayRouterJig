@@ -3,18 +3,24 @@
 
 For each size in SIZES: set InlayDiameter, recompute, run the pre-flight checks, mesh
 finely, verify the meshed hole, write
-    stl/RecessTemplate-D<size>.stl
-    3mf/RecessTemplate-D<size>.3mf
-then restore the original InlayDiameter. Does NOT save either document.
+    stl/RecessTemplate-D<size>[-S<standoff>].stl
+    3mf/RecessTemplate-D<size>[-S<standoff>].3mf
+then restore the original InlayDiameter. Does NOT save either document. The -S suffix
+appears only when StandoffHeight > 0, so feet and no-feet files never overwrite each other.
 
-PRINT ORIENTATION: as modeled, with the WORKPIECE (bottom) FACE ON THE BED, centered on
-X/Y and ZMin = 0. Flat orientation is strongest: layers run parallel to the plate, and
-the bearing's side load is carried along continuous perimeters. Putting the bottom face
-down (rather than the top) keeps the fit-critical bearing band (z = ReliefHeight to
-TemplateThick) in the upper layers, away from first-layer elephant foot. The label is
-engraved in the top layers, and the only overhang is the small relief ledge
-(ReliefDiameter - TemplateHoleModelD)/2 wide. The exporter asserts this placement;
-it never rotates the part.
+PRINT ORIENTATION — always flat (strongest: layers run parallel to the plate, and the
+bearing's side load is carried along continuous perimeters). Which face goes down depends
+on the standoff:
+  * StandoffHeight = 0 (default): as modeled, WORKPIECE (bottom) FACE ON THE BED. The
+    fit-critical bearing band (z = ReliefHeight to TemplateThick) is in the upper layers,
+    away from first-layer elephant foot. The label engraves in the top layers, and the
+    only overhang is the small relief ledge.
+  * StandoffHeight > 0: FLIPPED, TOP FACE ON THE BED. Bottom-down, the raised margin would
+    be one huge unsupported overhang; top-down, the ring foot simply grows upward. The
+    cost: the bearing band now prints on the first layers, so the slicer's elephant-foot
+    compensation is REQUIRED for these files.
+The model's placement is asserted (ZMin = 0, centered on X/Y); a flip is applied only to
+the exported mesh, never to the model.
 
 MESH: LinearDeflection 0.005 mm / AngularDeflection 2 deg. FreeCAD's default (0.1 mm)
 shrank a Ø200 hole by ~0.036 mm through chordal facets — a third of the glue gap. The
@@ -37,6 +43,7 @@ MODEL_PATH = os.path.join(PROJECT_DIR, "CircleInlayRouterJig.FCStd")
 SIZES = (100, 150, 200)          # Ø250 is on the backlog: it exceeds the bed
 BED_SIZE = 350.0                 # mm, Creality K2 Plus
 MIN_BEARING_BAND = 2.5           # mm, plan.md Validation 4
+MIN_PLATE_WEB = 4.0              # mm, plate left above the standoff (TemplateThick - StandoffHeight)
 LINEAR_DEFLECTION = 0.005        # mm
 ANGULAR_DEFLECTION_DEG = 2.0
 MAX_HOLE_LOSS = 0.01             # mm diametral, mesh vs model at mid-band
@@ -85,6 +92,9 @@ def preflight(size):
         problems.append("ZMin %.4f != 0 (bottom face must be on the bed)" % bb.ZMin)
     if abs(bb.Center.x) > 1e-4 or abs(bb.Center.y) > 1e-4:
         problems.append("not centered on X/Y (%.4f, %.4f)" % (bb.Center.x, bb.Center.y))
+    if v("StandoffHeight") > TOL and v("TemplateThick") - v("StandoffHeight") < MIN_PLATE_WEB - TOL:
+        problems.append("plate web %.2f < %.1f mm (StandoffHeight too tall for this bit)"
+                        % (v("TemplateThick") - v("StandoffHeight"), MIN_PLATE_WEB))
     if label is not None and label.String != "Ø%g" % size:
         problems.append("label reads %r, expected 'Ø%g'" % (label.String, size))
     if problems:
@@ -125,12 +135,27 @@ try:
         loss = v("TemplateHoleModelD") - hole
         if loss > MAX_HOLE_LOSS:
             raise RuntimeError("D%s meshed hole %.4f loses %.4f mm (> %.3f)" % (size, hole, loss, MAX_HOLE_LOSS))
-        stl = os.path.join(PROJECT_DIR, "stl", "RecessTemplate-D%d.stl" % size)
-        tmf = os.path.join(PROJECT_DIR, "3mf", "RecessTemplate-D%d.3mf" % size)
+        standoff = v("StandoffHeight")
+        if standoff > TOL:
+            # top face on the bed: rotate 180 deg about X, then lift back onto z = 0
+            flip = App.Matrix()
+            flip.rotateX(math.pi)
+            mesh.transform(flip)
+            mesh.translate(0, 0, v("TemplateThick"))
+            mbb = mesh.BoundBox
+            if abs(mbb.ZMin) > 1e-4 or abs(mbb.Center.x) > 1e-4 or abs(mbb.Center.y) > 1e-4:
+                raise RuntimeError("D%s flipped mesh misplaced: ZMin %.4f, center (%.4f, %.4f)"
+                                   % (size, mbb.ZMin, mbb.Center.x, mbb.Center.y))
+            stem, orient = "RecessTemplate-D%d-S%g" % (size, standoff), "TOP face down (elephant-foot comp REQUIRED)"
+        else:
+            stem, orient = "RecessTemplate-D%d" % size, "bottom face down"
+        stl = os.path.join(PROJECT_DIR, "stl", stem + ".stl")
+        tmf = os.path.join(PROJECT_DIR, "3mf", stem + ".3mf")
         mesh.write(stl)
         mesh.write(tmf)
         report.append({
-            "size": size, "plate": round(bb.XLength, 3), "thick": round(bb.ZLength, 3),
+            "size": size, "file": stem, "orient": orient,
+            "plate": round(bb.XLength, 3), "thick": round(bb.ZLength, 3),
             "hole_model": round(v("TemplateHoleModelD"), 3), "hole_mesh": round(hole, 4),
             "relief_ledge": round((v("ReliefDiameter") - v("TemplateHoleModelD")) / 2, 3),
             "band_z": (round(v("ReliefHeight"), 3), round(v("TemplateThick"), 3)),
@@ -142,7 +167,7 @@ finally:
     doc.recompute()
 
 for r in report:
-    print("CIRJ-03 D%(size)d: plate %(plate)s x %(thick)s, hole model %(hole_model)s / mesh %(hole_mesh)s, "
+    print("CIRJ-03 %(file)s [%(orient)s]: plate %(plate)s x %(thick)s, hole model %(hole_model)s / mesh %(hole_mesh)s, "
           "band z %(band_z)s, ledge %(relief_ledge)s, %(facets)d facets, "
           "stl %(stl_bytes)d B, 3mf %(3mf_bytes)d B" % r)
 print("CIRJ-03: restored InlayDiameter = %g. Documents not saved." % original.Value)

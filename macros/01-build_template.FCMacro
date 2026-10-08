@@ -4,6 +4,7 @@
 plan.md rev 2, FEATURE TREE steps 1–9:
   DatumPlane_Base -> Sk_Plate/Pad_Plate -> Sk_Hole/Pocket_Hole (ThroughAll)
   -> Sk_Relief/Pocket_Relief (ReliefHeight, up from the bottom face)
+  -> Sk_Standoff/Pocket_Standoff (optional ring foot; suppressed when StandoffHeight = 0)
   -> Sk_Notch/Pocket_Notch (V notch, ThroughAll) -> PolarPattern_Notches (x4)
 
 Every sketch is fully constrained to the origin/axes; every dimension and feature length
@@ -144,6 +145,29 @@ else:
     pr.Length = v("ReliefHeight")
     pr.setExpression("Length", P + "ReliefHeight")
     pr.Reversed = True
+
+    # 7b. Optional standoff ring foot (StandoffHeight; suppressed when 0).
+    #   Removes StandoffHeight of material from the UNDERSIDE everywhere outside a ring of
+    #   diameter FootRingDiameter around the relief. The ring stays on the field around the
+    #   inlay; a low lip can pass under the raised margin. The bearing band is measured from
+    #   the wood, so it does not move. Profile = two concentric circles: FootRingDiameter and an
+    #   outer circle of 2 x TemplateSide, which overshoots every plate corner.
+    sk = new_sketch("Sk_Standoff")
+    sk.addGeometry(Part.Circle(App.Vector(0, 0, 0), App.Vector(0, 0, 1), S))
+    sk.addGeometry(Part.Circle(App.Vector(0, 0, 0), App.Vector(0, 0, 1), v("FootRingDiameter") / 2))
+    sk.addConstraint(Sketcher.Constraint("Coincident", 0, 3, -1, 1))
+    sk.addConstraint(Sketcher.Constraint("Coincident", 1, 3, -1, 1))
+    c = sk.addConstraint(Sketcher.Constraint("Diameter", 0, 2 * S))
+    bind(sk, c, "2 * " + P + "TemplateSide")
+    c = sk.addConstraint(Sketcher.Constraint("Diameter", 1, v("FootRingDiameter")))
+    bind(sk, c, P + "FootRingDiameter")
+    ps = body.newObject("PartDesign::Pocket", "Pocket_Standoff")
+    ps.Profile = sk
+    ps.Type = "Length"
+    ps.Length = v("StandoffHeight")
+    ps.setExpression("Length", P + "StandoffHeight")
+    ps.Reversed = True
+    ps.setExpression("Suppressed", P + "StandoffHeight == 0mm")
 
     # 8–9. V alignment notch on the +X edge, then x4 polar pattern.
     #   Apex A on the X axis, AlignNotchDepth inside the edge; the outer corners B/C sit the same

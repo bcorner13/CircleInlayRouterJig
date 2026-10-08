@@ -1,19 +1,24 @@
 # CircleInlayRouterJig
 
 Parametric, 3D-printed router template for cutting a circular inlay recess with a
-guide bushing. It's sized to fit a **laser-cut** inlay disc. Built in FreeCAD 1.1.
+**top-bearing pattern bit**. It's sized to fit a **laser-cut** inlay disc. Built in FreeCAD 1.1.
 
-Set the disc diameter (`InlayDiameter`) plus your bushing and bit, and the template
-hole is derived automatically:
+The bit's bearing rides the template's hole wall, and the cutter below it cuts the recess.
+An underside relief keeps the cutter off the plastic, so only the bearing touches the
+template. Set the disc diameter and thickness plus your bit's measurements, and the
+template is derived automatically:
 
 ```
-Recess       = InlayDiameter − LaserKerf + 2·InlayFitClearance
-TemplateHole = Recess + BushingOD − BitDiameter
+Recess        = InlayDiameter − LaserKerf + 2·InlayFitClearance
+TemplateHole  = Recess + BearingOD − CutterDiameter
+TemplateThick = CutterLength − RecessDepth + BearingStackHeight − CollarGap
 ```
+
+Sizes planned: Ø100, Ø150, Ø200 (single piece on a 350 mm bed); Ø250 TBD.
 
 ## Status
 
-Scaffolded 2026-10-08. The design plan (`plan.md`) is awaiting approval, and no geometry exists yet.
+Scaffolded 2026-10-08. The design plan (`plan.md`, rev 2) is awaiting approval, and no geometry exists yet.
 
 ## Layout
 
@@ -30,7 +35,11 @@ Scaffolded 2026-10-08. The design plan (`plan.md`) is awaiting approval, and no 
 
 ## Usage
 
-1. Open `Params.FCStd` in FreeCAD and set `InlayDiameter`, `LaserKerf`, `BushingOD`, `BushingProtrusion` and `BitDiameter`.
+1. Measure your bit (cutter Ø and length, bearing Ø, bearing stack height) and your disc
+   (diameter, thickness). Enter them in `Params.FCStd`.
 2. Recompute `CircleInlayRouterJig.FCStd` and export `RecessTemplate`.
-3. Print, check the hole with calipers, and tune `TemplateHolePrintComp` if needed.
-4. Tape the template to the workpiece, aligning the edge notches to your layout lines, then rout with the bushing riding the hole wall.
+3. Print **top face down** in PETG-rCF (or similar), with elephant-foot compensation on.
+   Check the hole with calipers and tune `TemplateHolePrintComp` if needed.
+4. Tape the template to the workpiece, aligning the edge notches to your layout lines.
+5. Set the bit depth to the disc thickness and rout in **one full-depth pass**, keeping the
+   bearing against the wall. A shallower pass would cut into the template.

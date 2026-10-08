@@ -1,6 +1,6 @@
 # Project rules — CircleInlayRouterJig
 
-This jig's whole value is one derivation chain: **laser-cut disc diameter → recess diameter → template hole diameter**. The hole is computed from `InlayDiameter`, `LaserKerf`, `InlayFitClearance`, `BushingOD`, `BitDiameter` and `TemplateHolePrintComp`. If any of those is shortcut to a literal, or the formula is copied into a sketch instead of living once in the VarSet, a re-size silently produces a recess the disc doesn't fit. Fix fit problems by tuning the right clearance knob, never by nudging the hole.
+This jig's whole value is two derivation chains. **Diameter**: laser-cut disc → recess → template hole (`InlayDiameter`, `LaserKerf`, `InlayFitClearance`, `BearingOD`, `CutterDiameter`, `TemplateHolePrintComp`). **Height**: disc thickness + bit geometry → underside relief + plate thickness (`RecessDepth`, `CutterLength`, `BearingStackHeight`, `ReliefGap`, `CollarGap`). The height chain leaves the bearing only a ~3 mm band of wall to ride, so it's as fit-critical as the diameter chain. If any of those is shortcut to a literal, or the formula is copied into a sketch instead of living once in the VarSet, a re-size silently produces a recess the disc doesn't fit. Fix fit problems by tuning the right clearance knob, never by nudging the hole.
 
 > **How to use this template:** Every `[FILL: …]` marker is a required edit. Leave none. A thin CLAUDE.md (one that just restates the global rules) is the failure mode this template exists to prevent — the point is to capture *this project's* specific topology, history, and current state, so the user does not have to re-explain it each session.
 
@@ -10,17 +10,19 @@ This jig's whole value is one derivation chain: **laser-cut disc diameter → re
 
 These restate the global rules in `~/.claude/CLAUDE.md` with project-specific context. Cite the actual incident or constraint that motivates each one — generic restatements are useless because the global file already has them.
 
-1. **Everything parametric.** The highest-risk sketch is `Sk_Hole`. Its diameter must bind to the *derived* `<<Params>>#VarSet.TemplateHoleModelD`, never to `InlayDiameter` directly and never to a hand-computed number. Derived values (`RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateMargin`, `TemplateSide`, `TemplateThick`) are expressions *inside the VarSet*, so the formula exists in exactly one place. No prior incident in this project (fresh as of 2026-10-08).
+1. **Everything parametric.** The highest-risk sketch is `Sk_Hole`. Its diameter must bind to the *derived* `<<Params>>#VarSet.TemplateHoleModelD`, never to `InlayDiameter` directly and never to a hand-computed number. `Pocket_Relief.Length` binds to `ReliefHeight` and `Pad_Plate.Length` to `TemplateThick`, never to literals. Derived values (`RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `ReliefDiameter`, `ReliefHeight`, `TemplateThick`, `BearingBand`, `TemplateMargin`, `TemplateSide`) are expressions *inside the VarSet*, so the formula exists in exactly one place. No prior incident in this project (fresh as of 2026-10-08).
 
 2. **No fixing geometry by editing raw sketch coordinates.** No prior incident in this project; rule applies preventively.
 
 3. **Attach sketches to datum planes, not feature faces.** Base sketches go on `DatumPlane_Base`, top-face sketches (labels etc.) on `DatumPlane_Top` (offset `TemplateThick`). No prior DAG incident; rule applies preventively.
 
-4. **Clearance concepts stay decoupled.** Three distinct physical concerns, one knob each:
+4. **Clearance concepts stay decoupled.** Distinct physical concerns, one knob each:
    - `InlayFitClearance`: per-side glue gap between the laser-cut disc and the routed recess wall
    - `LaserKerf`: diameter the disc loses to the laser beam (laser process, not fit). Set it to 0 if the laser software already compensates
-   - `TemplateHolePrintComp`: per-side FDM compensation for the printed hole coming out undersize (printer/material, not fit)
-   - `BushingFloorGap`: vertical gap between the bushing tip and the workpiece (not a fit clearance; it drives `TemplateThick`)
+   - `TemplateHolePrintComp`: per-side FDM compensation for the printed hole coming out undersize (per printer/material, not fit)
+   - `ReliefClearance`: per-side radial gap between the spinning cutter and the underside relief wall
+   - `ReliefGap`: vertical gap between the cutter top and the relief ceiling
+   - `CollarGap`: vertical gap between the plate top and the bit's lock collar (the collar doesn't spin freely and would burn the plastic)
    A recess that's too tight after a test rout is **not** fixed with `TemplateHolePrintComp`. Measure which stage is off first (printed hole vs. calipers, disc vs. nominal).
 
 ---
@@ -30,11 +32,13 @@ These restate the global rules in `~/.claude/CLAUDE.md` with project-specific co
 There's no multi-part assembly. One printed part sits in a three-layer physical stack:
 
 - **Workpiece** (bottom): the board receiving the inlay. The template is taped or clamped on top, with its 4 edge-midpoint `AlignNotch` notches aligned to layout lines through the intended recess center.
-- **RecessTemplate** (middle): a square plate with a circular through-hole centered on the origin. The plate must be thicker than the bushing protrudes (`TemplateThick = BushingProtrusion + BushingFloorGap`), or the bushing drags on the workpiece.
-- **Router** (top): a Milwaukee M18 FUEL compact router (2723-20) on its 5-3/4" template sub-base, which takes Porter-Cable-style guides. The base rides on the template's top face, and the **guide bushing rides the inside wall of the hole**. The bit, smaller than the bushing, cuts *outside* the bushing path, so the recess is larger than the bushing path and smaller than the hole: `Recess = Hole − BushingOD + BitDiameter`. The top-edge `LeadInChamfer` lets the bushing drop in.
-- **Inlay disc**: laser cut separately (not printed, not modeled). It mates into the recess at `InlayFitClearance` per side.
+- **RecessTemplate** (middle): a square plate with a circular through-hole centered on X/Y, with its bottom face (workpiece side) at z = 0. The hole has an **underside relief**, a larger counterbore `ReliefDiameter` × `ReliefHeight` cut up from the bottom, so the spinning cutter never touches plastic. Above the relief is the **bearing band** (`BearingBand`, ~3.2 mm), the only wall the bearing rides. Printed **top face down**, so the relief needs no supports and the bearing band is on the first layers (elephant-foot compensation required).
+- **Router** (top): a Milwaukee M18 FUEL compact router (2723-20) on its 5-3/4" (146.05 mm) sub-base, with no guide bushing. The base rides on the plate's top face. The bit is a **top-bearing downcut pattern bit** (3/8" cutter × 3/8" length, two stacked bearings, then a set-screw lock collar). The bearing rides the bearing band, and the cutter below it cuts the recess wall on the bearing's path: `Recess = Hole − BearingOD + CutterDiameter`.
+- **Inlay disc**: laser cut separately (not printed, not modeled). It mates into the recess at `InlayFitClearance` per side. Its thickness is `RecessDepth`.
 
-There's no plug/male template. The laser makes the disc, which is why this isn't a classic two-template inlay kit.
+There's no plug/male template. The laser makes the disc. **Usage constraint: rout in one full-depth pass.** The plate height assumes the cutter is at full `RecessDepth`. A shallower pass raises the cutter into the plate above the relief.
+
+Design history: rev 1 of the plan used a guide-bushing inlay kit. It switched to the bearing bit on 2026-10-08 because the bearing bit has no bushing-concentricity error, simpler hole math, faster safe clearing with a 3/8" cutter, and a smaller plate. Rev 1 is in git history.
 
 ---
 
@@ -52,13 +56,13 @@ No broken files. Neither FCStd exists yet. The project is scaffolded and its pla
 ## Params variables (summary)
 
 See the PARAMETERS table in `plan.md` (authoritative until `Params.FCStd` exists, after which the VarSet itself is authoritative). Groups:
-- **Inlay**: `InlayDiameter` (the size knob), `LaserKerf`
-- **Tooling**: `BushingOD`, `BushingProtrusion`, `BitDiameter`, `RouterBaseDiameter`
-- **Clearance**: `InlayFitClearance`, `TemplateHolePrintComp`
-- **Template**: `BushingFloorGap`, `BaseSupportOverlap`, `LeadInChamfer`, `AlignNotchWidth`, `AlignNotchDepth`
-- **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `TemplateMargin`, `TemplateSide`, `TemplateThick`
+- **Inlay**: `InlayDiameter` (the size knob), `LaserKerf`, `RecessDepth` (disc thickness; drives plate height)
+- **Tooling**: `CutterDiameter`, `CutterLength`, `BearingOD`, `BearingStackHeight`, `RouterBaseDiameter`
+- **Clearance**: `InlayFitClearance`, `TemplateHolePrintComp`, `ReliefClearance`
+- **Template**: `ReliefGap`, `CollarGap`, `BaseSupportOverlap`, `AlignNotchWidth`, `AlignNotchDepth`
+- **Derived** (VarSet expressions, never hand-set): `RecessDiameter`, `TemplateHoleDiameter`, `TemplateHoleModelD`, `ReliefDiameter`, `ReliefHeight`, `TemplateThick`, `BearingBand` (validation only), `TemplateMargin`, `TemplateSide`
 
-Size set Ø100/150/200/250 (default 150). `RouterBaseDiameter` = 146.05 comes from the Milwaukee 2723-20 template base spec (sourced online; measure to confirm). `TemplateMargin` is **derived** (`RouterBaseDiameter/2 − BushingOD/2 + BaseSupportOverlap`): never hand-set it. Bushing and bit defaults are **placeholders** (5/8" bushing, 1/8" bit, 6 mm protrusion) until Bradley supplies them. **Ø200 fits the 350 bed with only ~3 mm to spare**, so any change that grows the margin or hole (bigger bushing, more overlap) breaks it. Re-check `TemplateSide` ≤ 350 for every size after tooling changes.
+Size set Ø100/150/200/250 (default 150). `RouterBaseDiameter` = 146.05 comes from the Milwaukee 2723-20 sub-base spec (sourced online; measure to confirm). The bit dims are listing values, and `BearingStackHeight` = 5.2 is **estimated from the listing drawing**. All bit values and `RecessDepth` are placeholders until measured. Bed fit: Ø100/150/200 → 240.5/290.5/340.5 mm (Ø200 has ~9.5 mm spare); Ø250 → 390.5 doesn't fit, and its strategy is an open question in plan.md. Asserts (the macro checks these): `BearingBand ≥ 2.5`, `TemplateSide ≤ 350`.
 
 ---
 

@@ -10,6 +10,7 @@ Idempotent:
   - Does NOT save. Review in FreeCAD, then save Params.FCStd yourself.
 
 Run only after plan.md is approved. Defaults marked TBD are placeholders.
+Matches plan.md rev 2 (top-bearing pattern bit).
 """
 import os
 import FreeCAD as App
@@ -22,34 +23,46 @@ PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
 PARAMS = [
     ("InlayDiameter",         "App::PropertyLength", "Inlay",     150.0,  "Nominal laser-cut disc diameter (size knob)"),
     ("LaserKerf",             "App::PropertyLength", "Inlay",     0.15,   "Diameter lost by the disc to laser kerf; 0 if laser SW compensates [TBD]"),
-    ("BushingOD",             "App::PropertyLength", "Tooling",   15.875, "Porter-Cable-style guide bushing outer diameter [TBD]"),
-    ("BushingProtrusion",     "App::PropertyLength", "Tooling",   6.0,    "Bushing protrusion below router base [TBD]"),
-    ("BitDiameter",           "App::PropertyLength", "Tooling",   3.175,  "Router bit cutting diameter [TBD]"),
+    ("RecessDepth",           "App::PropertyLength", "Inlay",     3.0,    "Disc thickness = routed recess depth; drives plate height [TBD]"),
+    ("CutterDiameter",        "App::PropertyLength", "Tooling",   9.525,  "Measured cutter diameter, 3/8in pattern bit [TBD measure]"),
+    ("CutterLength",          "App::PropertyLength", "Tooling",   9.525,  "Measured cutting length [TBD measure]"),
+    ("BearingOD",             "App::PropertyLength", "Tooling",   9.525,  "Measured bearing OD [TBD measure]"),
+    ("BearingStackHeight",    "App::PropertyLength", "Tooling",   5.2,    "Both bearings together; estimated from listing drawing [TBD measure]"),
+    ("RouterBaseDiameter",    "App::PropertyLength", "Tooling",   146.05, "Milwaukee M18 FUEL 2723-20 sub-base, 5-3/4in"),
     ("InlayFitClearance",     "App::PropertyLength", "Clearance", 0.05,   "Per-side glue gap, disc <-> recess wall"),
-    ("TemplateHolePrintComp", "App::PropertyLength", "Clearance", 0.15,   "Per-side FDM undersize compensation for the printed hole"),
-    ("BushingFloorGap",       "App::PropertyLength", "Template",  1.5,    "Gap between bushing tip and workpiece"),
-    ("RouterBaseDiameter",    "App::PropertyLength", "Tooling",   146.05, "Router sub-base diameter: Milwaukee M18 FUEL 2723-20 template base, 5-3/4in"),
-    ("BaseSupportOverlap",    "App::PropertyLength", "Template",  2.0,    "Extra plate beyond the router base's outer edge, with the bushing on the hole wall"),
-    ("LeadInChamfer",         "App::PropertyLength", "Template",  0.8,    "Top-edge chamfer on the hole for bushing lead-in"),
+    ("TemplateHolePrintComp", "App::PropertyLength", "Clearance", 0.15,   "Per-side FDM undersize comp for the printed hole (per material)"),
+    ("ReliefClearance",       "App::PropertyLength", "Clearance", 1.0,    "Per-side radial gap, cutter <-> underside relief wall"),
+    ("ReliefGap",             "App::PropertyLength", "Template",  1.0,    "Vertical gap, cutter top <-> relief ceiling"),
+    ("CollarGap",             "App::PropertyLength", "Template",  1.0,    "Vertical gap, plate top <-> bit lock-collar bottom"),
+    ("BaseSupportOverlap",    "App::PropertyLength", "Template",  2.0,    "Plate beyond the router base's outer edge, bearing on the wall"),
     ("AlignNotchWidth",       "App::PropertyLength", "Template",  3.0,    "Width of edge-midpoint alignment notches"),
     ("AlignNotchDepth",       "App::PropertyLength", "Template",  3.0,    "Depth of edge-midpoint alignment notches"),
     # Derived — value is set by expression below
     ("RecessDiameter",        "App::PropertyLength", "Derived",   0.0,    "Routed recess diameter (derived)"),
-    ("TemplateHoleDiameter",  "App::PropertyLength", "Derived",   0.0,    "Functional template hole diameter (derived)"),
+    ("TemplateHoleDiameter",  "App::PropertyLength", "Derived",   0.0,    "Functional hole diameter = bearing wall (derived)"),
     ("TemplateHoleModelD",    "App::PropertyLength", "Derived",   0.0,    "Hole as modeled incl. print comp (derived)"),
+    ("ReliefDiameter",        "App::PropertyLength", "Derived",   0.0,    "Underside relief diameter (derived)"),
+    ("ReliefHeight",          "App::PropertyLength", "Derived",   0.0,    "Underside relief height (derived)"),
+    ("TemplateThick",         "App::PropertyLength", "Derived",   0.0,    "Plate thickness (derived)"),
+    ("BearingBand",           "App::PropertyLength", "Derived",   0.0,    "Wall height the bearing rides; validation only (derived)"),
     ("TemplateMargin",        "App::PropertyLength", "Derived",   0.0,    "Plate material outside the hole, each side (derived)"),
     ("TemplateSide",          "App::PropertyLength", "Derived",   0.0,    "Square plate side (derived)"),
-    ("TemplateThick",         "App::PropertyLength", "Derived",   0.0,    "Plate thickness (derived)"),
 ]
 
 DERIVED = {
     "RecessDiameter":       "InlayDiameter - LaserKerf + 2 * InlayFitClearance",
-    "TemplateHoleDiameter": "RecessDiameter + BushingOD - BitDiameter",
+    "TemplateHoleDiameter": "RecessDiameter + BearingOD - CutterDiameter",
     "TemplateHoleModelD":   "TemplateHoleDiameter + 2 * TemplateHolePrintComp",
-    "TemplateMargin":       "RouterBaseDiameter / 2 - BushingOD / 2 + BaseSupportOverlap",
+    "ReliefDiameter":       "TemplateHoleDiameter + 2 * ReliefClearance",
+    "ReliefHeight":         "CutterLength - RecessDepth + ReliefGap",
+    "TemplateThick":        "CutterLength - RecessDepth + BearingStackHeight - CollarGap",
+    "BearingBand":          "TemplateThick - ReliefHeight",
+    "TemplateMargin":       "RouterBaseDiameter / 2 - BearingOD / 2 + BaseSupportOverlap",
     "TemplateSide":         "TemplateHoleDiameter + 2 * TemplateMargin",
-    "TemplateThick":        "BushingProtrusion + BushingFloorGap",
 }
+
+MIN_BEARING_BAND = 2.5   # mm — plan.md Validation 4
+BED_SIZE = 350.0         # mm — Creality K2 Plus
 
 
 def get_params_doc():
@@ -79,10 +92,15 @@ for name, expr in DERIVED.items():
 doc.recompute()
 
 App.Console.PrintMessage(
-    "CIRJ-00: added %d, kept %d existing. Derived: Recess=%.3f Hole=%.3f HoleModel=%.3f "
-    "Side=%.3f Thick=%.3f\n" % (
+    "CIRJ-00: added %d, kept %d existing. Recess=%.3f Hole=%.3f HoleModel=%.3f Relief=%.3fx%.3f "
+    "Thick=%.3f Band=%.3f Side=%.3f\n" % (
         len(added), len(kept), vs.RecessDiameter.Value, vs.TemplateHoleDiameter.Value,
-        vs.TemplateHoleModelD.Value, vs.TemplateSide.Value, vs.TemplateThick.Value))
-if vs.TemplateThick.Value <= vs.BushingProtrusion.Value:
-    App.Console.PrintError("CIRJ-00: TemplateThick <= BushingProtrusion — bushing will hit workpiece\n")
+        vs.TemplateHoleModelD.Value, vs.ReliefDiameter.Value, vs.ReliefHeight.Value,
+        vs.TemplateThick.Value, vs.BearingBand.Value, vs.TemplateSide.Value))
+if vs.BearingBand.Value < MIN_BEARING_BAND:
+    App.Console.PrintError("CIRJ-00: BearingBand %.2f < %.1f mm — bearing has too little wall to ride\n"
+                           % (vs.BearingBand.Value, MIN_BEARING_BAND))
+if vs.TemplateSide.Value > BED_SIZE:
+    App.Console.PrintError("CIRJ-00: TemplateSide %.1f > %.0f mm bed — this size needs the Open-Q-4 strategy\n"
+                           % (vs.TemplateSide.Value, BED_SIZE))
 App.Console.PrintMessage("CIRJ-00: not saved. Save Params.FCStd to %s after review.\n" % PROJECT_DIR)

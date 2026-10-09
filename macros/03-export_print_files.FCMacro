@@ -1,0 +1,328 @@
+# -*- coding: utf-8 -*-
+"""03-export_print_files — export STL + 3MF for every size in the set.
+
+For each size in SIZES: set InlayDiameter, recompute, run the pre-flight checks, mesh
+finely, verify the meshed hole, write
+    stl/RecessTemplate-D<size>[-S<standoff>].stl
+    3mf/RecessTemplate-D<size>[-S<standoff>].3mf
+then restore the original InlayDiameter. Does NOT save either document. The -S suffix
+appears only when StandoffHeight > 0, so feet and no-feet files never overwrite each other.
+
+PRINT ORIENTATION — always flat (strongest: layers run parallel to the plate, and the
+bearing's side load is carried along continuous perimeters). Which face goes down depends
+on the standoff:
+  * StandoffHeight = 0 (default): as modeled, WORKPIECE (bottom) FACE ON THE BED. The
+    fit-critical bearing band (z = ReliefHeight to TemplateThick) is in the upper layers,
+    away from first-layer elephant foot. The label engraves in the top layers, and the
+    only overhang is the small relief ledge.
+  * StandoffHeight > 0: FLIPPED, TOP FACE ON THE BED. Bottom-down, the raised margin would
+    be one huge unsupported overhang; top-down, the ring foot simply grows upward. The
+    cost: the bearing band now prints on the first layers, so the slicer's elephant-foot
+    compensation is REQUIRED for these files.
+The model's placement is asserted (ZMin = 0, centered on X/Y); a flip is applied only to
+the exported mesh, never to the model.
+
+MESH: LinearDeflection 0.005 mm / AngularDeflection 2 deg. FreeCAD's default (0.1 mm)
+shrank a Ø200 hole by ~0.036 mm through chordal facets — a third of the glue gap. The
+macro measures the meshed hole at mid-band and fails if it loses more than
+MAX_HOLE_LOSS.
+
+SLICER PROJECT 3MF — when 3mf/circleinlayjig-base.3mf exists (a Creality Print project
+Bradley saved once with his printer/filament/process, mouse ears and a variable-layer-height
+profile), each 3mf/ file is that project with THIS size's fine mesh swapped in (copy-through
+of every other zip entry), re-centered on the bed, plus SLICER_OVERRIDES (plan.md slicer notes:
+walls, top layers, ironing, no wipe tower) and a per-size ear width where the 5 mm ears would
+overflow the bed. The variable-layer-height table (Metadata/layer_heights_profile.txt) is
+absolute z, so it is kept only when the plate is still exactly the height it was recorded at
+(identical for every size); otherwise it is dropped with a warning — re-save the base. Without
+the base file the 3MF is a plain mesh as before. STLs are always plain meshes.
+Creality Print 7.3 on macOS cannot slice from the CLI (tested 2026-10-08): open each 3MF in
+the GUI and check the preview (ears at corners, varying layers, no wipe tower).
+
+Run from FreeCAD (Macro menu) or via MCP run_macro. Prints a report to stdout.
+"""
+import json
+import math
+import os
+import re
+import zipfile
+import FreeCAD as App
+import Mesh
+import MeshPart
+
+PROJECT_DIR = os.path.expanduser(
+    "~/Documents/3dPrinting/Commercial License/CircleInlayRouterJig")
+PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
+MODEL_PATH = os.path.join(PROJECT_DIR, "CircleInlayRouterJig.FCStd")
+
+SIZES = (100, 150, 200)          # Ø250 is on the backlog: it exceeds the bed
+BED_SIZE = 350.0                 # mm, Creality K2 Plus
+MIN_BEARING_BAND = 2.5           # mm, plan.md Validation 4
+MIN_PLATE_WEB = 4.0              # mm, plate left above the standoff (TemplateThick - StandoffHeight)
+LINEAR_DEFLECTION = 0.005        # mm
+ANGULAR_DEFLECTION_DEG = 2.0
+MAX_HOLE_LOSS = 0.01             # mm diametral, mesh vs model at mid-band
+TOL = 1e-6
+
+BASE_3MF = os.path.join(PROJECT_DIR, "3mf", "circleinlayjig-base.3mf")
+OBJECT_ENTRY = "3D/Objects/object_1.model"
+PROFILE_ENTRY = "Metadata/layer_heights_profile.txt"
+# Process overrides on top of the base project (Bradley approved 2026-10-09).
+SLICER_OVERRIDES = {
+    "wall_loops": "4",               # bearing wall = solid perimeters, not 0.9 mm over sparse infill
+    "top_shell_layers": "5",
+    "ironing_type": "no ironing",    # topmost ironing cost 4h04m of an 8h45m D150 print, cosmetic only
+    "enable_prime_tower": "0",       # single material; the tower also shoved the plate off-center
+    "brim_ears_max_angle": "150",    # 125 found no corners on the R10-rounded plate (no ears, 2026-10-09)
+}
+EAR_WIDTH = {200: "4.5"}             # brim_width per size; default 5 makes D200 350.8 > 350 bed
+PROFILE_Z_TOL = 1e-3                 # mm, profile top vs TemplateThick
+
+
+def find_doc(path):
+    for d in App.listDocuments().values():
+        if d.FileName and os.path.abspath(d.FileName) == path:
+            return d
+    return None
+
+
+params = find_doc(PARAMS_PATH) or App.openDocument(PARAMS_PATH)
+doc = find_doc(MODEL_PATH) or App.openDocument(MODEL_PATH)
+vs = params.getObject("VarSet")
+body = doc.getObject("RecessTemplate")
+label = doc.getObjectsByLabel("Label_Text")
+label = label[0] if label else None
+
+
+def v(name):
+    return getattr(vs, name).Value
+
+
+def recompute():
+    params.recompute()
+    doc.recompute()
+    bad = [o.Name for o in doc.Objects if set(o.State) & {"Invalid", "Error", "Touched"}]
+    if bad:
+        raise RuntimeError("recompute left objects in a bad state: %s" % bad)
+
+
+def preflight(size):
+    """Raise on anything that would make a bad print file."""
+    sh = body.Shape
+    bb = sh.BoundBox
+    problems = []
+    if not sh.isValid() or len(sh.Solids) != 1:
+        problems.append("shape not a single valid solid")
+    if v("TemplateSide") > BED_SIZE + TOL:
+        problems.append("TemplateSide %.2f > bed %.0f" % (v("TemplateSide"), BED_SIZE))
+    if v("BearingBand") < MIN_BEARING_BAND - TOL:
+        problems.append("BearingBand %.2f < %.1f" % (v("BearingBand"), MIN_BEARING_BAND))
+    if abs(bb.ZMin) > 1e-4:
+        problems.append("ZMin %.4f != 0 (bottom face must be on the bed)" % bb.ZMin)
+    if abs(bb.Center.x) > 1e-4 or abs(bb.Center.y) > 1e-4:
+        problems.append("not centered on X/Y (%.4f, %.4f)" % (bb.Center.x, bb.Center.y))
+    if v("StandoffHeight") > TOL and v("TemplateThick") - v("StandoffHeight") < MIN_PLATE_WEB - TOL:
+        problems.append("plate web %.2f < %.1f mm (StandoffHeight too tall for this bit)"
+                        % (v("TemplateThick") - v("StandoffHeight"), MIN_PLATE_WEB))
+    if label is not None and label.String != "Ø%g" % size:
+        problems.append("label reads %r, expected 'Ø%g'" % (label.String, size))
+    if problems:
+        raise RuntimeError("D%s pre-flight failed: %s" % (size, "; ".join(problems)))
+    return bb
+
+
+def meshed_hole_dia(mesh):
+    """Smallest diameter of the meshed hole at mid bearing band (chord midpoints)."""
+    z = v("ReliefHeight") + v("BearingBand") / 2
+    limit = (v("TemplateHoleModelD") + v("ReliefDiameter")) / 4   # between hole and plate
+    rmin = None
+    for poly in mesh.crossSections([(App.Vector(0, 0, z), App.Vector(0, 0, 1))])[0]:
+        pts = list(poly)
+        for a, b in zip(pts, pts[1:]):
+            mid = (a + b) * 0.5
+            r = math.hypot(mid.x, mid.y)
+            if r < limit and (rmin is None or r < rmin):
+                rmin = r
+    if rmin is None:
+        raise RuntimeError("could not find the hole in the mesh cross-section at z=%.3f" % z)
+    return 2 * rmin
+
+
+def fmt(x):
+    s = "%.6f" % x
+    s = s.rstrip("0").rstrip(".")
+    return "0" if s in ("-0", "") else s
+
+
+def mesh_xml(mesh, center):
+    """3MF <mesh> element, vertices relative to `center` (Creality stores objects centered)."""
+    points, facets = mesh.Topology
+    out = ["<mesh>\n    <vertices>\n"]
+    for p in points:
+        out.append('     <vertex x="%s" y="%s" z="%s"/>\n'
+                   % (fmt(p.x - center.x), fmt(p.y - center.y), fmt(p.z - center.z)))
+    out.append("    </vertices>\n    <triangles>\n")
+    for a, b, c in facets:
+        out.append('     <triangle v1="%d" v2="%d" v3="%d"/>\n' % (a, b, c))
+    out.append("    </triangles>\n   </mesh>")
+    return "".join(out), len(points), len(facets)
+
+
+def profile_top(text):
+    """Highest z in a layer_heights_profile.txt ('object_id=N|z;h;z;h;...')."""
+    vals = [float(t) for t in text.split("|", 1)[1].strip().split(";") if t]
+    return max(vals[0::2])
+
+
+def write_project_3mf(mesh, size, path, flipped):
+    """Base Creality project with this mesh swapped in. Returns notes for the report."""
+    notes = []
+    mbb = mesh.BoundBox
+    center = App.Vector(mbb.Center.x, mbb.Center.y, mbb.Center.z)
+    half_z = mbb.ZLength / 2
+    with zipfile.ZipFile(BASE_3MF) as zin:
+        entries = [(i, zin.read(i.filename)) for i in zin.infolist()]
+    settings = json.loads(dict((i.filename, d) for i, d in entries)["Metadata/project_settings.config"])
+    xs = [float(p.split("x")[0]) for p in settings["printable_area"]]
+    ys = [float(p.split("x")[1]) for p in settings["printable_area"]]
+    bed_cx, bed_cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    ear = EAR_WIDTH.get(size, settings["brim_width"])
+    footprint = max(mbb.XLength, mbb.YLength) + 2 * (float(ear) + float(settings["brim_object_gap"]))
+    if footprint > min(max(xs) - min(xs), max(ys) - min(ys)) + TOL:
+        raise RuntimeError("D%s plate + %s mm ears = %.2f mm, over the bed" % (size, ear, footprint))
+    place = "%s %s %s" % (fmt(bed_cx), fmt(bed_cy), fmt(half_z))
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zout:
+        for info, data in entries:
+            name = info.filename
+            if name == OBJECT_ENTRY:
+                text = data.decode("utf-8")
+                xml, npts, nfac = mesh_xml(mesh, center)
+                text, n = re.subn(r"<mesh>.*</mesh>", lambda m: xml, text, count=1, flags=re.S)
+                if n != 1:
+                    raise RuntimeError("base %s has no <mesh> block" % OBJECT_ENTRY)
+                data = text.encode("utf-8")
+                notes.append("%d vertices / %d triangles" % (npts, nfac))
+            elif name == "3D/3dmodel.model":
+                text = data.decode("utf-8")
+                text, n = re.subn(r'(<item [^>]*transform="1 0 0 0 1 0 0 0 1 )[^"]*(")',
+                                  lambda m: m.group(1) + place + m.group(2), text)
+                if n != 1:
+                    raise RuntimeError("base 3dmodel.model: expected 1 build item, found %d" % n)
+                data = text.encode("utf-8")
+            elif name == "Metadata/model_settings.config":
+                text = data.decode("utf-8")
+                text = re.sub(r'(key="source_offset_z" value=")[^"]*', lambda m: m.group(1) + fmt(half_z), text)
+                text = re.sub(r'(<assemble_item [^>]*transform="1 0 0 0 1 0 0 0 1 )[^"]*(")',
+                              lambda m: m.group(1) + place + m.group(2), text)
+                text = re.sub(r'(key="source_file" value=")[^"]*', lambda m: m.group(1) + path, text)
+                data = text.encode("utf-8")
+            elif name == "Metadata/project_settings.config":
+                s = json.loads(data)
+                changed = dict(SLICER_OVERRIDES, brim_width=ear)
+                s.update(changed)
+                # mark them as user-modified in the process preset, as Creality does itself
+                diff = s.get("different_settings_to_system") or [""]
+                keys = [k for k in diff[0].split(";") if k]
+                diff[0] = ";".join(keys + [k for k in sorted(changed) if k not in keys])
+                s["different_settings_to_system"] = diff
+                data = json.dumps(s, indent=4).encode("utf-8")
+                notes.append("ears %s mm" % ear)
+            elif name == PROFILE_ENTRY:
+                top = profile_top(data.decode("utf-8"))
+                if flipped or abs(top - mbb.ZLength) > PROFILE_Z_TOL:
+                    App.Console.PrintWarning(
+                        "CIRJ-03 D%s: variable-layer profile is for a %.3f mm part, this one is %.3f mm%s "
+                        "-> profile DROPPED (uniform layers). Re-save the base project.\n"
+                        % (size, top, mbb.ZLength, " and flipped" if flipped else ""))
+                    notes.append("VLH profile DROPPED")
+                    continue
+                notes.append("VLH profile kept")
+            zout.writestr(info, data)
+    return notes
+
+
+def verify_project_3mf(path, mesh, size):
+    """Read the written file back: mesh count/extent, placement and overrides."""
+    with zipfile.ZipFile(path) as z:
+        if z.testzip() is not None:
+            raise RuntimeError("D%s 3MF failed zip CRC check" % size)
+        obj = z.read(OBJECT_ENTRY).decode("utf-8")
+        s = json.loads(z.read("Metadata/project_settings.config"))
+    verts = [tuple(float(c) for c in m) for m in
+             re.findall(r'<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"/>', obj)]
+    if len(verts) != mesh.CountPoints or obj.count("<triangle ") != mesh.CountFacets:
+        raise RuntimeError("D%s 3MF mesh count mismatch" % size)
+    mbb = mesh.BoundBox
+    for axis, length in enumerate((mbb.XLength, mbb.YLength, mbb.ZLength)):
+        lo = min(p[axis] for p in verts)
+        hi = max(p[axis] for p in verts)
+        if abs((hi - lo) - length) > 1e-4 or abs(hi + lo) > 1e-4:
+            raise RuntimeError("D%s 3MF mesh extent/centering wrong on axis %d" % (size, axis))
+    for k, val in dict(SLICER_OVERRIDES, brim_width=EAR_WIDTH.get(size, s["brim_width"])).items():
+        if s.get(k) != val:
+            raise RuntimeError("D%s 3MF setting %s = %r, expected %r" % (size, k, s.get(k), val))
+
+
+use_base = os.path.exists(BASE_3MF)
+if not use_base:
+    App.Console.PrintWarning("CIRJ-03: %s not found -> 3MFs are plain meshes (no slicer settings)\n" % BASE_3MF)
+
+original = vs.InlayDiameter
+report = []
+try:
+    for size in SIZES:
+        vs.InlayDiameter = size
+        recompute()
+        bb = preflight(size)
+        mesh = MeshPart.meshFromShape(Shape=body.Shape, LinearDeflection=LINEAR_DEFLECTION,
+                                      AngularDeflection=math.radians(ANGULAR_DEFLECTION_DEG),
+                                      Relative=False)
+        if not mesh.isSolid() or mesh.hasNonManifolds():
+            raise RuntimeError("D%s mesh is not a closed manifold solid" % size)
+        hole = meshed_hole_dia(mesh)
+        loss = v("TemplateHoleModelD") - hole
+        if loss > MAX_HOLE_LOSS:
+            raise RuntimeError("D%s meshed hole %.4f loses %.4f mm (> %.3f)" % (size, hole, loss, MAX_HOLE_LOSS))
+        standoff = v("StandoffHeight")
+        if standoff > TOL:
+            # top face on the bed: rotate 180 deg about X, then lift back onto z = 0
+            flip = App.Matrix()
+            flip.rotateX(math.pi)
+            mesh.transform(flip)
+            mesh.translate(0, 0, v("TemplateThick"))
+            mbb = mesh.BoundBox
+            if abs(mbb.ZMin) > 1e-4 or abs(mbb.Center.x) > 1e-4 or abs(mbb.Center.y) > 1e-4:
+                raise RuntimeError("D%s flipped mesh misplaced: ZMin %.4f, center (%.4f, %.4f)"
+                                   % (size, mbb.ZMin, mbb.Center.x, mbb.Center.y))
+            stem, orient = "RecessTemplate-D%d-S%g" % (size, standoff), "TOP face down (elephant-foot comp REQUIRED)"
+        else:
+            stem, orient = "RecessTemplate-D%d" % size, "bottom face down"
+        stl = os.path.join(PROJECT_DIR, "stl", stem + ".stl")
+        tmf = os.path.join(PROJECT_DIR, "3mf", stem + ".3mf")
+        mesh.write(stl)
+        if use_base:
+            notes = write_project_3mf(mesh, size, tmf, standoff > TOL)
+            verify_project_3mf(tmf, mesh, size)
+            kind = "Creality project: " + ", ".join(notes)
+        else:
+            mesh.write(tmf)
+            kind = "plain mesh"
+        report.append({
+            "size": size, "file": stem, "orient": orient, "kind": kind,
+            "plate": round(bb.XLength, 3), "thick": round(bb.ZLength, 3),
+            "hole_model": round(v("TemplateHoleModelD"), 3), "hole_mesh": round(hole, 4),
+            "relief_ledge": round((v("ReliefDiameter") - v("TemplateHoleModelD")) / 2, 3),
+            "band_z": (round(v("ReliefHeight"), 3), round(v("TemplateThick"), 3)),
+            "facets": mesh.CountFacets, "stl_bytes": os.path.getsize(stl), "3mf_bytes": os.path.getsize(tmf),
+        })
+finally:
+    vs.InlayDiameter = original
+    params.recompute()
+    doc.recompute()
+
+for r in report:
+    print("CIRJ-03 %(file)s [%(orient)s]: plate %(plate)s x %(thick)s, hole model %(hole_model)s / mesh %(hole_mesh)s, "
+          "band z %(band_z)s, ledge %(relief_ledge)s, %(facets)d facets, "
+          "stl %(stl_bytes)d B, 3mf %(3mf_bytes)d B [%(kind)s]" % r)
+print("CIRJ-03: restored InlayDiameter = %g. Documents not saved." % original.Value)

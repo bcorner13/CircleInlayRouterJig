@@ -1,0 +1,90 @@
+# -*- coding: utf-8 -*-
+"""02-add_size_label — engrave the size label ("Ø150" etc.) into the template's top face.
+
+plan.md rev 2, FEATURE TREE step 10 + DECISIONS 2:
+  DatumPlane_Top (offset TemplateThick)  <- Label_Text (Draft ShapeString, attached)
+  -> Binder_Label (SubShapeBinder inside the body) -> Pocket_Label (LabelDepth, into the top)
+
+  * Text derives from InlayDiameter: <<Ø%g>> % (InlayDiameter / 1mm)  -> "Ø150"
+  * Bottom-left corner, LabelInset from both edges — outside the router base's sweep
+  * Size = LabelSize, depth = LabelDepth; all bound to <<Params>>#VarSet
+
+Idempotent: does nothing if Pocket_Label exists, unless REBUILD=True (deletes and re-adds
+the four label objects). Run AFTER 01-build_template; re-run it after any 01 REBUILD.
+Does NOT save.
+"""
+import os
+import FreeCAD as App
+import Draft
+
+PROJECT_DIR = os.path.expanduser(
+    "~/Documents/3dPrinting/Commercial License/CircleInlayRouterJig")
+PARAMS_PATH = os.path.join(PROJECT_DIR, "Params.FCStd")
+MODEL_PATH = os.path.join(PROJECT_DIR, "CircleInlayRouterJig.FCStd")
+FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+P = "<<Params>>#VarSet."
+LABEL_OBJECTS = ["Pocket_Label", "Binder_Label", "Label_Text", "DatumPlane_Top"]
+
+try:
+    REBUILD
+except NameError:
+    REBUILD = False
+
+
+def find_doc(path):
+    for d in App.listDocuments().values():
+        if d.FileName and os.path.abspath(d.FileName) == path:
+            return d
+    return None
+
+
+params = find_doc(PARAMS_PATH) or App.openDocument(PARAMS_PATH)
+doc = find_doc(MODEL_PATH) or App.openDocument(MODEL_PATH)
+body = doc.getObject("RecessTemplate")
+if body is None:
+    raise RuntimeError("CIRJ-02: RecessTemplate not found — run 01-build_template first.")
+
+if doc.getObject("Pocket_Label") is not None and not REBUILD:
+    App.Console.PrintMessage("CIRJ-02: label exists; nothing to do (pass REBUILD=True to rebuild).\n")
+else:
+    # Pocket first (it depends on the others). Label_Text is matched by Label: Draft names
+    # the object ShapeString*, and only its Label is ours.
+    for name in LABEL_OBJECTS:
+        for o in [doc.getObject(name)] + doc.getObjectsByLabel(name):
+            if o is not None and doc.getObject(o.Name) is not None:
+                doc.removeObject(o.Name)
+    doc.recompute()
+    prev_tip = body.Tip
+    origin = {f.Role: f for f in body.Origin.OriginFeatures}
+
+    dpt = body.newObject("PartDesign::Plane", "DatumPlane_Top")
+    dpt.AttachmentSupport = [(origin["XY_Plane"], "")]
+    dpt.MapMode = "FlatFace"
+    dpt.setExpression(".AttachmentOffset.Base.z", P + "TemplateThick")
+
+    ss = Draft.make_shapestring("Ø", FONT, 10)
+    ss.Label = "Label_Text"
+    ss.setExpression("String", "<<Ø%g>> % (" + P + "InlayDiameter / 1mm)")
+    ss.setExpression("Size", P + "LabelSize")
+    ss.AttachmentSupport = [(dpt, "")]
+    ss.MapMode = "FlatFace"
+    ss.setExpression(".AttachmentOffset.Base.x", "-" + P + "TemplateSide / 2 + " + P + "LabelInset")
+    ss.setExpression(".AttachmentOffset.Base.y", "-" + P + "TemplateSide / 2 + " + P + "LabelInset")
+
+    binder = body.newObject("PartDesign::SubShapeBinder", "Binder_Label")
+    binder.Support = [(ss, ("",))]
+
+    pl = body.newObject("PartDesign::Pocket", "Pocket_Label")
+    pl.Profile = binder
+    pl.Type = "Length"
+    pl.Length = 0.6
+    pl.setExpression("Length", P + "LabelDepth")
+    body.Tip = pl
+
+    doc.recompute()
+    try:
+        ss.ViewObject.Visibility = False
+        binder.ViewObject.Visibility = False
+    except Exception:
+        pass   # headless
+    App.Console.PrintMessage("CIRJ-02: label '%s' added (tip was %s). Not saved.\n" % (ss.String, prev_tip.Name))

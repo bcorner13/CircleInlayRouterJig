@@ -73,6 +73,7 @@ SLICER_OVERRIDES = {
     "top_shell_layers": "5",
     "ironing_type": "topmost",       # plate top only (not the label floor)
     "enable_prime_tower": "0",       # single material; the tower also shoved the plate off-center
+    "brim_ears_max_angle": "150",    # 125 found no corners on the R10-rounded plate (no ears, 2026-10-09)
 }
 EAR_WIDTH = {200: "4.5"}             # brim_width per size; default 5 makes D200 350.8 > 350 bed
 PROFILE_Z_TOL = 1e-3                 # mm, profile top vs TemplateThick

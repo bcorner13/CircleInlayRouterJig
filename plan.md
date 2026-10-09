@@ -154,8 +154,8 @@ Rev 2 originally said top face down; that was reversed because:
 * **Label:** engraved into the top layers, so it prints crisp. Top-down would have turned its floor into 0.6 mm-high bridges.
 * **Only overhang:** the relief ledge, `(ReliefDiameter − TemplateHoleModelD)/2` = 0.85 mm, about two extrusion widths. It
   prints without supports, and nothing touches it.
-* **Surfaces:** the workpiece face is bed-flat (good for tape and for sitting flat). The router glides on the top layers, so
-  enable **ironing** on top surfaces.
+* **Surfaces:** the workpiece face is bed-flat (good for tape and for sitting flat). The router glides on the top layers. Ironing
+  was planned but is **off**: on D150 it took 4h04m of an 8h45m print for a cosmetic gain (2026-10-09).
 
 `macros/03-export_print_files.FCMacro` exports in this orientation and asserts it (ZMin = 0, centered on X/Y). Don't flip it in the slicer.
 

@@ -71,7 +71,7 @@ PROFILE_ENTRY = "Metadata/layer_heights_profile.txt"
 SLICER_OVERRIDES = {
     "wall_loops": "4",               # bearing wall = solid perimeters, not 0.9 mm over sparse infill
     "top_shell_layers": "5",
-    "ironing_type": "topmost",       # plate top only (not the label floor)
+    "ironing_type": "no ironing",    # topmost ironing cost 4h04m of an 8h45m D150 print, cosmetic only
     "enable_prime_tower": "0",       # single material; the tower also shoved the plate off-center
     "brim_ears_max_angle": "150",    # 125 found no corners on the R10-rounded plate (no ears, 2026-10-09)
 }
